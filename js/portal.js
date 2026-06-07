@@ -1,50 +1,91 @@
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 
 const escena = new THREE.Scene();
-escena.background = new THREE.Color(0x080810);
+const camara = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camara.position.set(0, 0, 0);
 
-const camara = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
-camara.position.z = 5;
-
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x000000, 0);
 renderer.domElement.style.position = 'fixed';
 renderer.domElement.style.top = '0';
 renderer.domElement.style.left = '0';
-renderer.domElement.style.zIndex = '-1';
+renderer.domElement.style.zIndex = '0';
+renderer.domElement.style.pointerEvents = 'none';
 document.body.appendChild(renderer.domElement);
 
-// Partículas de niebla
-const numParticulas = 2000;
-const geometria = new THREE.BufferGeometry();
-const posiciones = new Float32Array(numParticulas * 3);
-
-for (let i = 0; i < numParticulas * 3; i++) {
-  posiciones[i] = (Math.random() - 0.5) * 20;
+function crearTextura() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0,   'rgba(140, 155, 165, 1)');
+  g.addColorStop(0.3, 'rgba(120, 135, 148, 0.6)');
+  g.addColorStop(0.7, 'rgba(100, 115, 130, 0.2)');
+  g.addColorStop(1,   'rgba(80, 95, 110, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(canvas);
 }
 
-geometria.setAttribute('position', new THREE.BufferAttribute(posiciones, 3));
+const numParticulas = 3000;
+const geo = new THREE.BufferGeometry();
+const pos = new Float32Array(numParticulas * 3);
+const vel = new Float32Array(numParticulas);
 
-const material = new THREE.PointsMaterial({
-  color: 0x8899aa,
-  size: 0.05,
+for (let i = 0; i < numParticulas; i++) {
+  pos[i * 3]     = (Math.random() - 0.5) * 40;
+  pos[i * 3 + 1] = (Math.random() - 0.5) * 15;
+  pos[i * 3 + 2] = -(Math.random() * 30 + 5);
+  vel[i]         = 0.015 + Math.random() * 0.02;
+}
+
+geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+
+const mat = new THREE.PointsMaterial({
+  map: crearTextura(),
+  size: 6,
   transparent: true,
-  opacity: 0.6
+  opacity: 0.18,
+  sizeAttenuation: true,
+  depthWrite: false,
+  blending: THREE.NormalBlending
 });
 
-const particulas = new THREE.Points(geometria, material);
+const particulas = new THREE.Points(geo, mat);
 escena.add(particulas);
 
-// Animación
+let mouseX = 0;
+let rumbo = 0;
+
+document.addEventListener('mousemove', e => {
+  mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+});
+
+window.addEventListener('resize', () => {
+  camara.aspect = window.innerWidth / window.innerHeight;
+  camara.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
 function animar() {
   requestAnimationFrame(animar);
-  particulas.position.z += 0.01;
-  if (particulas.position.z > 5) particulas.position.z = 0;
+
+  for (let i = 0; i < numParticulas; i++) {
+    pos[i * 3 + 2] += vel[i];
+    if (pos[i * 3 + 2] > -4) {
+     pos[i * 3] = (Math.random() - 0.5) * 40 + rumbo;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 15;
+      pos[i * 3 + 2] = -(30 + Math.random() * 5);
+    }
+  }
+
+  geo.attributes.position.needsUpdate = true;
+  rumbo += mouseX * 0.04;
+  rumbo = Math.max(-8, Math.min(8, rumbo));
+  particulas.position.x = rumbo;
+
   renderer.render(escena, camara);
 }
 
