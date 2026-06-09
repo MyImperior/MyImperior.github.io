@@ -124,6 +124,44 @@ function lanzarRayo() {
 
 // Primer rayo tras 3 segundos
 setTimeout(lanzarRayo, 3000);
+function crearRayo(left, top) {
+  const rayo = document.createElement('div');
+  rayo.style.cssText = `
+    position: fixed;
+    left: ${left}%;
+    top: ${top}%;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(220,235,255,0.35) 0%, rgba(180,210,255,0.15) 40%, transparent 70%);
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.05s;
+  `;
+  document.body.appendChild(rayo);
+
+  setTimeout(() => rayo.style.opacity = '1', 10);
+  setTimeout(() => {
+    rayo.style.transition = 'opacity 0.3s';
+    rayo.style.opacity = '0';
+    setTimeout(() => rayo.remove(), 300);
+  }, 150);
+}
+
+function rayoCiudad() {
+  crearRayo(18, 52);
+  setTimeout(rayoCiudad, 8000 + Math.random() * 8000);
+}
+
+function rayoMontana() {
+  crearRayo(78, 48);
+  setTimeout(rayoMontana, 10000 + Math.random() * 10000);
+}
+
+setTimeout(rayoCiudad, 3000);
+setTimeout(rayoMontana, 6000);
   </script>
 
   <script type="module" src="js/portal.js"></script>

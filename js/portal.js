@@ -56,6 +56,24 @@ const mat = new THREE.PointsMaterial({
 const particulas = new THREE.Points(geo, mat);
 escena.add(particulas);
 
+// Suelo animado
+const loaderSuelo = new THREE.TextureLoader();
+loaderSuelo.load('imagenes/suelo.jpg', (texturaSuelo) => {
+  texturaSuelo.wrapS = THREE.RepeatWrapping;
+  texturaSuelo.wrapT = THREE.RepeatWrapping;
+  texturaSuelo.repeat.set(8, 8);
+
+  const geoSuelo = new THREE.PlaneGeometry(40, 40);
+  const matSuelo = new THREE.MeshBasicMaterial({ map: texturaSuelo });
+  const suelo = new THREE.Mesh(geoSuelo, matSuelo);
+
+  suelo.rotation.x = -Math.PI / 2;
+  suelo.position.set(0, -2, -10);
+  escena.add(suelo);
+
+  window._texturaSuelo = texturaSuelo;
+});
+
 let mouseX = 0;
 
 document.addEventListener('mousemove', e => {
@@ -88,6 +106,12 @@ function animar() {
   }
 
   geo.attributes.position.needsUpdate = true;
+
+  if (window._texturaSuelo) {
+    window._texturaSuelo.offset.y += 0.005;
+    window._texturaSuelo.offset.x += mouseX * 0.002;
+  }
+
   renderer.render(escena, camara);
 }
 
