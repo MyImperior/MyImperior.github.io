@@ -10,7 +10,7 @@ renderer.setClearColor(0x000000, 0);
 renderer.domElement.style.position = 'fixed';
 renderer.domElement.style.top = '0';
 renderer.domElement.style.left = '0';
-renderer.domElement.style.zIndex = '0';
+renderer.domElement.style.zIndex = '-1';
 renderer.domElement.style.pointerEvents = 'none';
 document.body.appendChild(renderer.domElement);
 
@@ -29,14 +29,14 @@ function crearTextura() {
   return new THREE.CanvasTexture(canvas);
 }
 
-const numParticulas = 3000;
+const numParticulas = 1500;
 const geo = new THREE.BufferGeometry();
 const pos = new Float32Array(numParticulas * 3);
 const vel = new Float32Array(numParticulas);
 
 for (let i = 0; i < numParticulas; i++) {
-  pos[i * 3]     = (Math.random() - 0.5) * 40;
-  pos[i * 3 + 1] = (Math.random() - 0.5) * 15;
+  pos[i * 3]     = (Math.random() - 0.5) * 80;
+  pos[i * 3 + 1] = Math.random() * 12 - 4;
   pos[i * 3 + 2] = -(Math.random() * 30 + 5);
   vel[i]         = 0.015 + Math.random() * 0.02;
 }
@@ -57,7 +57,6 @@ const particulas = new THREE.Points(geo, mat);
 escena.add(particulas);
 
 let mouseX = 0;
-let rumbo = 0;
 
 document.addEventListener('mousemove', e => {
   mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
@@ -74,18 +73,21 @@ function animar() {
 
   for (let i = 0; i < numParticulas; i++) {
     pos[i * 3 + 2] += vel[i];
+    pos[i * 3]     -= mouseX * vel[i] * 0.8;
+
     if (pos[i * 3 + 2] > -4) {
-     pos[i * 3] = (Math.random() - 0.5) * 40 + rumbo;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 15;
+      pos[i * 3 + 1] = Math.random() * 12 - 4;
+      pos[i * 3 + 2] = -(30 + Math.random() * 5);
+    }
+
+    const dx = pos[i * 3];
+    const dy = pos[i * 3 + 1];
+    if (Math.sqrt(dx * dx + dy * dy) < 8 && pos[i * 3 + 2] > -8) {
       pos[i * 3 + 2] = -(30 + Math.random() * 5);
     }
   }
 
   geo.attributes.position.needsUpdate = true;
-  rumbo += mouseX * 0.04;
-  rumbo = Math.max(-8, Math.min(8, rumbo));
-  particulas.position.x = rumbo;
-
   renderer.render(escena, camara);
 }
 
