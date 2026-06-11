@@ -1,7 +1,7 @@
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 
 const escena = new THREE.Scene();
-const camara = new THREE.PerspectiveCamera(15, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camara = new THREE.PerspectiveCamera(115, window.innerWidth / window.innerHeight, 0.1, 1000);
 camara.position.set(0, 0, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
