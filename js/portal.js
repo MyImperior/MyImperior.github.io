@@ -64,13 +64,14 @@ loaderSuelo.load('imagenes/suelotileable2.jpg', (texturaSuelo) => {
   texturaSuelo.repeat.set(8, 8);
 
   const geoSuelo = new THREE.PlaneGeometry(40, 40);
-  const matSuelo = new THREE.MeshBasicMaterial({ map: texturaSuelo });
+  const matSuelo = new THREE.MeshBasicMaterial({
+    map: texturaSuelo,
+    depthWrite: false
+  });
   const suelo = new THREE.Mesh(geoSuelo, matSuelo);
-
   suelo.rotation.x = -Math.PI / 2;
   suelo.position.set(0, -2, -10);
   escena.add(suelo);
-
   window._texturaSuelo = texturaSuelo;
 });
 
@@ -97,10 +98,7 @@ function animar() {
       pos[i * 3 + 1] = Math.random() * 12 - 4;
       pos[i * 3 + 2] = -(30 + Math.random() * 5);
     }
-const matSuelo = new THREE.MeshBasicMaterial({ 
-  map: texturaSuelo,
-  depthWrite: false
-});
+
     const dx = pos[i * 3];
     const dy = pos[i * 3 + 1];
     if (Math.sqrt(dx * dx + dy * dy) < 8 && pos[i * 3 + 2] > -8) {
