@@ -17,16 +17,6 @@
       background-color: #080810;
     }
 
-    #capa-barco {
-      position: fixed;
-      bottom: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      height: 80%;
-      z-index: 2;
-      pointer-events: auto;
-    }
-
     #marco-memoria {
       position: fixed;
       bottom: 20px;
@@ -63,7 +53,6 @@
 </head>
 <body>
 
-  <img id="capa-barco" src="imagenes/BARCO-CERCA-BARCO.png">
   <div id="marco-memoria"></div>
 
   <nav>
@@ -74,14 +63,6 @@
   </nav>
 
   <script>
-    const barco = document.getElementById('capa-barco');
-
-    document.addEventListener('mousemove', (e) => {
-      const mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
-      const desplazamiento = mouseX * 30;
-      barco.style.transform = `translateX(calc(-50% + ${desplazamiento}px))`;
-    });
-
     document.addEventListener('click', (e) => {
       const x = e.clientX;
       const w = window.innerWidth;
@@ -98,79 +79,79 @@
       e.stopPropagation();
       window.location.href = 'secciones/memoria.html';
     });
+
     // Sistema de rayos
-function lanzarRayo() {
-  const flash = document.createElement('div');
-  flash.style.cssText = `
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(200, 220, 255, 0.15);
-    z-index: 1;
-    pointer-events: none;
-  `;
-  document.body.appendChild(flash);
+    function lanzarRayo() {
+      const flash = document.createElement('div');
+      flash.style.cssText = `
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(200, 220, 255, 0.15);
+        z-index: 1;
+        pointer-events: none;
+      `;
+      document.body.appendChild(flash);
 
-  // El flash dura 120ms y desaparece
-  setTimeout(() => {
-    flash.style.transition = 'opacity 0.08s';
-    flash.style.opacity = '0';
-    setTimeout(() => flash.remove(), 80);
-  }, 120);
+      setTimeout(() => {
+        flash.style.transition = 'opacity 0.08s';
+        flash.style.opacity = '0';
+        setTimeout(() => flash.remove(), 80);
+      }, 120);
 
-  // Próximo rayo en 8-18 segundos
-  setTimeout(lanzarRayo, 8000 + Math.random() * 10000);
-}
+      setTimeout(lanzarRayo, 8000 + Math.random() * 10000);
+    }
 
-// Primer rayo tras 3 segundos
-setTimeout(lanzarRayo, 3000);
-function crearRayo(left, top) {
-  const rayo = document.createElement('div');
-  rayo.style.cssText = `
-    position: fixed;
-    left: ${left}%;
-    top: ${top}%;
-    width: 200px;
-    height: 200px;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    background: radial-gradient(circle, rgba(220,235,255,0.35) 0%, rgba(180,210,255,0.15) 40%, transparent 70%);
-    z-index: 1;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.05s;
-  `;
-  document.body.appendChild(rayo);
+    setTimeout(lanzarRayo, 3000);
 
-  setTimeout(() => rayo.style.opacity = '1', 10);
-  setTimeout(() => {
-    rayo.style.transition = 'opacity 0.3s';
-    rayo.style.opacity = '0';
-    setTimeout(() => rayo.remove(), 300);
-  }, 150);
-}
+    function crearRayo(left, top) {
+      const rayo = document.createElement('div');
+      rayo.style.cssText = `
+        position: fixed;
+        left: ${left}%;
+        top: ${top}%;
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        background: radial-gradient(circle, rgba(220,235,255,0.35) 0%, rgba(180,210,255,0.15) 40%, transparent 70%);
+        z-index: 1;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.05s;
+      `;
+      document.body.appendChild(rayo);
 
-function rayoCiudad() {
-  crearRayo(18, 52);
-  setTimeout(rayoCiudad, 8000 + Math.random() * 8000);
-}
+      setTimeout(() => rayo.style.opacity = '1', 10);
+      setTimeout(() => {
+        rayo.style.transition = 'opacity 0.3s';
+        rayo.style.opacity = '0';
+        setTimeout(() => rayo.remove(), 300);
+      }, 150);
+    }
 
-function rayoMontana() {
-  crearRayo(78, 48);
-  setTimeout(rayoMontana, 10000 + Math.random() * 10000);
-}
+    function rayoCiudad() {
+      crearRayo(18, 52);
+      setTimeout(rayoCiudad, 8000 + Math.random() * 8000);
+    }
 
-setTimeout(rayoCiudad, 3000);
-setTimeout(rayoMontana, 6000);
+    function rayoMontana() {
+      crearRayo(78, 48);
+      setTimeout(rayoMontana, 10000 + Math.random() * 10000);
+    }
+
+    setTimeout(rayoCiudad, 3000);
+    setTimeout(rayoMontana, 6000);
   </script>
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
   }
-}
-</script>
+  </script>
   <script type="module" src="js/portal.js"></script>
 
 </body>
