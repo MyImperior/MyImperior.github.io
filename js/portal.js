@@ -107,4 +107,29 @@ function animar() {
     pos[i * 3]     -= mouseX * vel[i] * 0.8;
 
     if (pos[i * 3 + 2] > -4) {
-      pos[i * 3 + 1]
+      pos[i * 3 + 1] = Math.random() * 12 - 4;
+      pos[i * 3 + 2] = -(30 + Math.random() * 5);
+    }
+
+    const dx = pos[i * 3];
+    const dy = pos[i * 3 + 1];
+    if (Math.sqrt(dx * dx + dy * dy) < 8 && pos[i * 3 + 2] > -8) {
+      pos[i * 3 + 2] = -(30 + Math.random() * 5);
+    }
+  }
+
+  geo.attributes.position.needsUpdate = true;
+
+  if (window._texturaSuelo) {
+    window._texturaSuelo.offset.y += 0.005;
+    window._texturaSuelo.offset.x += mouseX * 0.002;
+  }
+
+  if (barco3D) {
+    barco3D.rotation.y += (mouseX * 0.3 - barco3D.rotation.y) * 0.05;
+  }
+
+  renderer.render(escena, camara);
+}
+
+animar();
