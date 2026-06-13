@@ -62,7 +62,7 @@ const loaderSuelo = new THREE.TextureLoader();
 loaderSuelo.load('imagenes/suelotileable2.jpg', (texturaSuelo) => {
   texturaSuelo.wrapS = THREE.RepeatWrapping;
   texturaSuelo.wrapT = THREE.RepeatWrapping;
-  texturaSuelo.repeat.set(8, 8);
+  texturaSuelo.repeat.set(20, 20);
 
   const geoSuelo = new THREE.PlaneGeometry(40, 40);
   const matSuelo = new THREE.MeshBasicMaterial({
@@ -121,8 +121,8 @@ function animar() {
   geo.attributes.position.needsUpdate = true;
 
   if (window._texturaSuelo) {
-    window._texturaSuelo.offset.y += 0.005;
-    window._texturaSuelo.offset.x += mouseX * 0.002;
+    window._texturaSuelo.offset.y += 0.015;
+    window._texturaSuelo.offset.x += mouseX * 0.01;
   }
 
   if (barco3D) {
