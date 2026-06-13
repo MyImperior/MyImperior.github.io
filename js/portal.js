@@ -1,5 +1,5 @@
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-
+import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 const escena = new THREE.Scene();
 const camara = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camara.position.set(0, 0, 0);
@@ -10,7 +10,7 @@ renderer.setClearColor(0x000000, 0);
 renderer.domElement.style.position = 'fixed';
 renderer.domElement.style.top = '0';
 renderer.domElement.style.left = '0';
-renderer.domElement.style.zIndex = '-1';
+renderer.domElement.style.zIndex = '0';
 renderer.domElement.style.pointerEvents = 'none';
 document.body.appendChild(renderer.domElement);
 
@@ -29,14 +29,14 @@ function crearTextura() {
   return new THREE.CanvasTexture(canvas);
 }
 
-const numParticulas = 1500;
+const numParticulas = 3000;
 const geo = new THREE.BufferGeometry();
 const pos = new Float32Array(numParticulas * 3);
 const vel = new Float32Array(numParticulas);
 
 for (let i = 0; i < numParticulas; i++) {
-  pos[i * 3]     = (Math.random() - 0.5) * 80;
-  pos[i * 3 + 1] = Math.random() * 12 - 4;
+  pos[i * 3]     = (Math.random() - 0.5) * 40;
+  pos[i * 3 + 1] = (Math.random() - 0.5) * 15;
   pos[i * 3 + 2] = -(Math.random() * 30 + 5);
   vel[i]         = 0.015 + Math.random() * 0.02;
 }
@@ -55,26 +55,18 @@ const mat = new THREE.PointsMaterial({
 
 const particulas = new THREE.Points(geo, mat);
 escena.add(particulas);
+// Barco 3D
+const loaderBarco = new GLTFLoader();
+let barco3D;
 
-// Suelo animado
-const loaderSuelo = new THREE.TextureLoader();
-loaderSuelo.load('imagenes/suelo.jpg', (texturaSuelo) => {
-  texturaSuelo.wrapS = THREE.RepeatWrapping;
-  texturaSuelo.wrapT = THREE.RepeatWrapping;
-  texturaSuelo.repeat.set(8, 8);
-
-  const geoSuelo = new THREE.PlaneGeometry(40, 40);
-  const matSuelo = new THREE.MeshBasicMaterial({ map: texturaSuelo });
-  const suelo = new THREE.Mesh(geoSuelo, matSuelo);
-
-  suelo.rotation.x = -Math.PI / 2;
-  suelo.position.set(0, -2, -10);
-  escena.add(suelo);
-
-  window._texturaSuelo = texturaSuelo;
+loaderBarco.load('3D/barco3d.glb', (gltf) => {
+  barco3D = gltf.scene;
+  barco3D.scale.set(2, 2, 2);
+  barco3D.position.set(0, -1, -6);
+  escena.add(barco3D);
 });
-
 let mouseX = 0;
+let rumbo = 0;
 
 document.addEventListener('mousemove', e => {
   mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
@@ -91,27 +83,20 @@ function animar() {
 
   for (let i = 0; i < numParticulas; i++) {
     pos[i * 3 + 2] += vel[i];
-    pos[i * 3]     -= mouseX * vel[i] * 0.8;
-
     if (pos[i * 3 + 2] > -4) {
-      pos[i * 3 + 1] = Math.random() * 12 - 4;
-      pos[i * 3 + 2] = -(30 + Math.random() * 5);
-    }
-
-    const dx = pos[i * 3];
-    const dy = pos[i * 3 + 1];
-    if (Math.sqrt(dx * dx + dy * dy) < 8 && pos[i * 3 + 2] > -8) {
+     pos[i * 3] = (Math.random() - 0.5) * 40 + rumbo;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 15;
       pos[i * 3 + 2] = -(30 + Math.random() * 5);
     }
   }
 
   geo.attributes.position.needsUpdate = true;
-
-  if (window._texturaSuelo) {
-    window._texturaSuelo.offset.y += 0.005;
-    window._texturaSuelo.offset.x += mouseX * 0.002;
-  }
-
+  rumbo += mouseX * 0.04;
+  rumbo = Math.max(-8, Math.min(8, rumbo));
+  particulas.position.x = rumbo;
+if (barco3D) {
+  barco3D.rotation.y += (mouseX * 0.3 - barco3D.rotation.y) * 0.05;
+}
   renderer.render(escena, camara);
 }
 
