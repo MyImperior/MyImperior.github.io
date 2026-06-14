@@ -84,15 +84,27 @@
       }
     });
 
-  document.getElementById('marco-memoria').addEventListener('click', (e) => {
+let temporizadorMemoria;
+const marco = document.getElementById('marco-memoria');
+
+marco.addEventListener('mousedown', (e) => {
   e.stopPropagation();
-  const overlay = document.getElementById('fade-overlay');
-  overlay.style.opacity = '1';
-  setTimeout(() => {
-    window.location.href = 'secciones/memoria.html';
-  }, 800);
+  temporizadorMemoria = setTimeout(() => {
+    const overlay = document.getElementById('fade-overlay');
+    overlay.style.opacity = '1';
+    setTimeout(() => {
+      window.location.href = 'secciones/memoria.html';
+    }, 1200);
+  }, 5000);
 });
 
+marco.addEventListener('mouseup', () => {
+  clearTimeout(temporizadorMemoria);
+});
+
+marco.addEventListener('mouseleave', () => {
+  clearTimeout(temporizadorMemoria);
+});
     // Sistema de rayos
     function lanzarRayo() {
       const flash = document.createElement('div');
