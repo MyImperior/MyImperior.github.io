@@ -129,6 +129,7 @@ function animar() {
   }
 
   grupoSuelo.rotation.y += mouseX * 0.005;
+  grupoSuelo.rotation.y = Math.max(-0.5, Math.min(0.5, grupoSuelo.rotation.y));
 
   if (barco3D) {
     barco3D.rotation.y += (-mouseX * 0.3 - barco3D.rotation.y) * 0.05;
