@@ -59,7 +59,7 @@ escena.add(particulas);
 
 // Suelo animado
 const loaderSuelo = new THREE.TextureLoader();
-loaderSuelo.load('imagenes/suelotileable2.jpg', (texturaSuelo) => {
+loaderSuelo.load('imagenes/suelonegro.jpg', (texturaSuelo) => {
   texturaSuelo.wrapS = THREE.RepeatWrapping;
   texturaSuelo.wrapT = THREE.RepeatWrapping;
   texturaSuelo.repeat.set(20, 20);
