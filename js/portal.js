@@ -151,7 +151,7 @@ function animar() {
     window._texturaSuelo.offset.y += 0.015;
   }
 
-  camara.rotation.y += (mouseX * 0.3 - camara.rotation.y) * 0.05;
+  camara.rotation.y += (mouseX * 0.3 - camara.rotation.y) * 0f;
 
   renderer.render(escena, camara);
 }
