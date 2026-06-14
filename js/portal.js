@@ -131,7 +131,10 @@ function animar() {
   if (barco3D) {
     barco3D.rotation.y += (-mouseX * 0.3 - barco3D.rotation.y) * 0.05;
   }
-
+const ancho = window.innerWidth;
+const alto = window.innerHeight;
+const desplazamiento = mouseX * ancho * 0.3;
+camara.setViewOffset(ancho * 2, alto, ancho * 0.5 - desplazamiento, 0, ancho, alto);
   renderer.render(escena, camara);
 }
 
