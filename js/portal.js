@@ -103,10 +103,6 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-const objetivoCamara = new THREE.Vector3(0, -1, -6);
-const radioOrbital = 6;
-let anguloOrbital = 0;
-
 function animar() {
   requestAnimationFrame(animar);
 
@@ -134,11 +130,6 @@ function animar() {
   if (barco3D) {
     barco3D.rotation.y += (-mouseX * 0.3 - barco3D.rotation.y) * 0.05;
   }
-
-  anguloOrbital += (mouseX * 0.3 - anguloOrbital) * 0.05;
-  camara.position.x = objetivoCamara.x + radioOrbital * Math.sin(anguloOrbital);
-  camara.position.z = objetivoCamara.z + radioOrbital * Math.cos(anguloOrbital);
-  camara.lookAt(objetivoCamara);
 
   renderer.render(escena, camara);
 }
