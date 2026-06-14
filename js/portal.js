@@ -73,6 +73,7 @@ loaderSuelo.load('imagenes/suelonegro.jpg', (texturaSuelo) => {
   suelo.rotation.x = -Math.PI / 2;
   suelo.position.set(0, -2, -10);
   escena.add(suelo);
+  window._suelo = suelo;
   window._texturaSuelo = texturaSuelo;
 });
 
@@ -122,9 +123,11 @@ function animar() {
 
   if (window._texturaSuelo) {
     window._texturaSuelo.offset.y += 0.015;
-    window._texturaSuelo.offset.x += mouseX * 0.01;
+    
   }
-
+if (window._suelo) {
+  window._suelo.rotation.y += mouseX * 0.005;
+}
   if (barco3D) {
     barco3D.rotation.y += (-mouseX * 0.3 - barco3D.rotation.y) * 0.05;
   }
