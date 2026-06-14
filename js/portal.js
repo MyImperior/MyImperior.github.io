@@ -125,8 +125,10 @@ function animar() {
   geo.attributes.position.needsUpdate = true;
 
   if (window._texturaSuelo) {
-    window._texturaSuelo.offset.y += 0.015;
-  }
+  const angulo = grupoSuelo.rotation.y;
+  window._texturaSuelo.offset.y += 0.015 * Math.cos(angulo);
+  window._texturaSuelo.offset.x += 0.015 * Math.sin(angulo);
+}
 
   grupoSuelo.rotation.y += mouseX * 0.005;
   grupoSuelo.rotation.y = Math.max(-0.5, Math.min(0.5, grupoSuelo.rotation.y));
