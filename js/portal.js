@@ -108,7 +108,6 @@ function animar() {
 
   for (let i = 0; i < numParticulas; i++) {
     pos[i * 3 + 2] += vel[i];
-    pos[i * 3]     -= mouseX * vel[i] * 0.8;
 
     if (pos[i * 3 + 2] > -4) {
       pos[i * 3 + 1] = Math.random() * 12 - 4;
@@ -130,11 +129,9 @@ function animar() {
 
   if (barco3D) {
     barco3D.rotation.y += (-mouseX * 0.3 - barco3D.rotation.y) * 0.05;
+    camara.rotation.y = -barco3D.rotation.y;
   }
-const ancho = window.innerWidth;
-const alto = window.innerHeight;
-const desplazamiento = mouseX * ancho * 0.3;
-camara.setViewOffset(ancho * 2, alto, ancho * 0.5 - desplazamiento, 0, ancho, alto);
+
   renderer.render(escena, camara);
 }
 
