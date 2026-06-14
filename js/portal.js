@@ -57,7 +57,10 @@ const mat = new THREE.PointsMaterial({
 const particulas = new THREE.Points(geo, mat);
 escena.add(particulas);
 
-// Suelo animado
+// Suelo animado — usando un grupo para rotar como peonza
+const grupoSuelo = new THREE.Group();
+escena.add(grupoSuelo);
+
 const loaderSuelo = new THREE.TextureLoader();
 loaderSuelo.load('imagenes/suelonegro.jpg', (texturaSuelo) => {
   texturaSuelo.wrapS = THREE.RepeatWrapping;
@@ -72,8 +75,8 @@ loaderSuelo.load('imagenes/suelonegro.jpg', (texturaSuelo) => {
   const suelo = new THREE.Mesh(geoSuelo, matSuelo);
   suelo.rotation.x = -Math.PI / 2;
   suelo.position.set(0, -2, -10);
-  escena.add(suelo);
-  window._suelo = suelo;
+  grupoSuelo.add(suelo);
+
   window._texturaSuelo = texturaSuelo;
 });
 
@@ -123,11 +126,10 @@ function animar() {
 
   if (window._texturaSuelo) {
     window._texturaSuelo.offset.y += 0.015;
-    
   }
-if (window._suelo) {
-  window._suelo.rotation.y += mouseX * 0.005;
-}
+
+  grupoSuelo.rotation.y += mouseX * 0.005;
+
   if (barco3D) {
     barco3D.rotation.y += (-mouseX * 0.3 - barco3D.rotation.y) * 0.05;
   }
