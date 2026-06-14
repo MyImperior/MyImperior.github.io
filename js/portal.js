@@ -125,9 +125,7 @@ function animar() {
   geo.attributes.position.needsUpdate = true;
 
   if (window._texturaSuelo) {
-  const angulo = grupoSuelo.rotation.y;
-  window._texturaSuelo.offset.y += 0.015 * Math.cos(angulo);
-  window._texturaSuelo.offset.x += 0.015 * Math.sin(angulo);
+  window._texturaSuelo.offset.y += 0.015;
 }
 
   grupoSuelo.rotation.y += mouseX * 0.005;
