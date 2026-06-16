@@ -141,7 +141,7 @@ function animar() {
   }
 
   if (barco3D) {
-    barco3D.rotation.y += (-mouseX * 0.8 - barco3D.rotation.y) * 0.05;
+    barco3D.rotation.y += (-mouseX * 0.6 - barco3D.rotation.y) * 0.05;
   }
 
   renderer.render(escena, camara);
