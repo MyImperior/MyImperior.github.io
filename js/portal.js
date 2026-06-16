@@ -20,6 +20,9 @@ escena.add(luzAmbiente);
 const luzDireccional = new THREE.DirectionalLight(0xffffff, 1);
 luzDireccional.position.set(5, 5, 5);
 escena.add(luzDireccional);
+const luzDireccional2 = new THREE.DirectionalLight(0xffffff, 1);
+luzDireccional2.position.set(-5, 3, -5);
+escena.add(luzDireccional2);
 function crearTextura() {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
