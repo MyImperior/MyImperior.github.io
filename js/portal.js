@@ -14,7 +14,7 @@ renderer.domElement.style.left = '0';
 renderer.domElement.style.zIndex = '-1';
 renderer.domElement.style.pointerEvents = 'none';
 document.body.appendChild(renderer.domElement);
-const luzAmbiente = new THREE.AmbientLight(0xffffff, 1.5);
+const luzAmbiente = new THREE.AmbientLight(0xffffff, 8);
 escena.add(luzAmbiente);
 
 const luzDireccional = new THREE.DirectionalLight(0xffffff, 1);
