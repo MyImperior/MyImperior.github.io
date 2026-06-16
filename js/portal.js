@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const escena = new THREE.Scene();
 const camara = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -14,6 +15,8 @@ renderer.domElement.style.left = '0';
 renderer.domElement.style.zIndex = '-1';
 renderer.domElement.style.pointerEvents = 'none';
 document.body.appendChild(renderer.domElement);
+const pmremGenerator = new THREE.PMREMGenerator(renderer);
+escena.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 const luzAmbiente = new THREE.AmbientLight(0xffffff, 8);
 escena.add(luzAmbiente);
 
