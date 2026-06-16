@@ -17,14 +17,16 @@ renderer.domElement.style.pointerEvents = 'none';
 document.body.appendChild(renderer.domElement);
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
 escena.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-const luzAmbiente = new THREE.AmbientLight(0xffffff, 8);
+const luzAmbiente = new THREE.AmbientLight(0xffffff, 2);
 escena.add(luzAmbiente);
 
-const luzDireccional = new THREE.DirectionalLight(0xffffff, 1);
+const luzDireccional = new THREE.DirectionalLight(0xffffff, 2.5);
 luzDireccional.position.set(5, 5, 5);
 escena.add(luzDireccional);
-const luzDireccional2 = new THREE.DirectionalLight(0xffffff, 1);
+
+const luzDireccional2 = new THREE.DirectionalLight(0xffffff, 2.5);
 luzDireccional2.position.set(-5, 3, -5);
+escena.add(luzDireccional2);
 escena.add(luzDireccional2);
 function crearTextura() {
   const canvas = document.createElement('canvas');
