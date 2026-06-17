@@ -89,6 +89,11 @@ const suelo = new THREE.Mesh(geoSuelo, matSuelo);
 suelo.rotation.x = -Math.PI / 2;
 grupoSuelo.add(suelo);
 grupoSuelo.position.set(0, -2, -1);
+const marcador = new THREE.Mesh(
+  new THREE.SphereGeometry(0.3, 8, 8),
+  new THREE.MeshBasicMaterial({ color: 0xff0000 })
+);
+grupoSuelo.add(marcador);
 
   window._texturaSuelo = texturaSuelo;
 });
