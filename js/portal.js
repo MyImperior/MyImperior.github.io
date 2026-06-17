@@ -85,10 +85,10 @@ loaderSuelo.load('imagenes/suelonegro.jpg', (texturaSuelo) => {
     map: texturaSuelo,
     depthWrite: false
   });
-  const suelo = new THREE.Mesh(geoSuelo, matSuelo);
-  suelo.rotation.x = -Math.PI / 2;
-  suelo.position.set(0, -2, -10);
-  grupoSuelo.add(suelo);
+const suelo = new THREE.Mesh(geoSuelo, matSuelo);
+suelo.rotation.x = -Math.PI / 2;
+grupoSuelo.add(suelo);
+grupoSuelo.position.set(0, -2, -10);
 
   window._texturaSuelo = texturaSuelo;
 });
@@ -139,7 +139,7 @@ function animar() {
   if (window._texturaSuelo) {
     window._texturaSuelo.offset.y += 0.015;
   }
-
+grupoSuelo.rotation.y += (-mouseX * 0.5 - grupoSuelo.rotation.y) * 0.05;
   if (barco3D) {
     barco3D.rotation.y += (-mouseX * 0.6 - barco3D.rotation.y) * 0.05;
   }
