@@ -139,7 +139,7 @@ function animar() {
   if (window._texturaSuelo) {
     window._texturaSuelo.offset.y += 0.015;
   }
-grupoSuelo.rotation.y += (-mouseX * 0.5 - grupoSuelo.rotation.y) * 0.05;
+grupoSuelo.rotation.y += (-mouseX * 1.5 - grupoSuelo.rotation.y) * 0.05;
   if (barco3D) {
     barco3D.rotation.y += (-mouseX * 0.6 - barco3D.rotation.y) * 0.05;
   }
