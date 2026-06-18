@@ -145,7 +145,7 @@ function animar() {
     window._texturaSuelo.offset.y += 0.015;
   }
 grupoSuelo.rotation.y += (-mouseX * 0.4 - grupoSuelo.rotation.y) * 0.05;
-grupoSuelo.rotation.y = Math.max(-043., Math.min(0.43, grupoSuelo.rotation.y));
+grupoSuelo.rotation.y = Math.max(-0.43, Math.min(0.43, grupoSuelo.rotation.y));
   if (barco3D) {
     barco3D.rotation.y += (-mouseX * 0.6 - barco3D.rotation.y) * 0.05;
   }
