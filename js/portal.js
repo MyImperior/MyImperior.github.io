@@ -3,8 +3,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const escena = new THREE.Scene();
-const camara = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camara.position.set(0, 0, 0);
+const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+camara.position.set(0, 0.5, 1);
+camara.lookAt(0, 0.2,  -6);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -105,7 +106,7 @@ let barco3D;
 loaderBarco.load('3D/barco3d.glb', (gltf) => {
   barco3D = gltf.scene;
   barco3D.scale.set(2, 2, 2);
-  barco3D.position.set(0, -1, -6);
+  barco3D.position.set(0, -1, -9);
   escena.add(barco3D);
 });
 
@@ -142,7 +143,7 @@ function animar() {
   geo.attributes.position.needsUpdate = true;
 
   if (window._texturaSuelo) {
-    window._texturaSuelo.offset.y += 0.015;
+    window._texturaSuelo.offset.y += 0.025;
   }
 grupoSuelo.rotation.y += (-mouseX * 0.4 - grupoSuelo.rotation.y) * 0.05;
 grupoSuelo.rotation.y = Math.max(-0.43, Math.min(0.43, grupoSuelo.rotation.y));
