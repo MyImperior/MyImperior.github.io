@@ -4,7 +4,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const escena = new THREE.Scene();
 escena.background = new THREE.Color(0x8a9aa8);
-escena.fog = new THREE.Fog(0x8a9aa8, 10, 32);
+escena.fog = new THREE.FogExp2(0x8a9aa8, 0.06);
 const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 camara.position.set(0, 0.5, 1);
 camara.lookAt(0, 0.2,  -6);
