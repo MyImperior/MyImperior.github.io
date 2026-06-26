@@ -4,7 +4,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const escena = new THREE.Scene();
 escena.background = new THREE.Color(0x8a9aa8);
-escena.fog = new THREE.Fog(0x8a9aa8, 10, 32);
+escena.fog = new THREE.Fog(0x8a9aa8, 5, 18);
 const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 camara.position.set(0, 0.5, 1);
 camara.lookAt(0, 0.2,  -6);
@@ -46,7 +46,7 @@ function crearTextura() {
   return new THREE.CanvasTexture(canvas);
 }
 
-const numParticulas = 2500;
+const numParticulas = 1500;
 const geo = new THREE.BufferGeometry();
 const pos = new Float32Array(numParticulas * 3);
 const vel = new Float32Array(numParticulas);
@@ -55,14 +55,14 @@ for (let i = 0; i < numParticulas; i++) {
   pos[i * 3]     = (Math.random() - 0.5) * 80;
   pos[i * 3 + 1] = Math.random() * 12 - 4;
   pos[i * 3 + 2] = -(Math.random() * 30 + 5);
-  vel[i]         = 0.04 + Math.random() * 0.04;
+  vel[i]         = 0.015 + Math.random() * 0.02;
 }
 
 geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
 
 const mat = new THREE.PointsMaterial({
   map: crearTextura(),
- size: 4,
+  size: 5,
   transparent: true,
   opacity: 0.32,
   sizeAttenuation: true,
@@ -146,6 +146,48 @@ grupoSuelo.rotation.y += (-mouseX * 0.4 - grupoSuelo.rotation.y) * 0.05;
 grupoSuelo.rotation.y = Math.max(-0.43, Math.min(0.43, grupoSuelo.rotation.y));
   if (barco3D) {
     barco3D.rotation.y += (-mouseX * 0.6 - barco3D.rotation.y) * 0.05;
+  }
+
+  renderer.render(escena, camara);
+}
+
+animar();
+ barco3D.rotation.y += (-mouseX * 0.6 - barco3D.rotation.y) * 0.05;
+  }
+
+  renderer.render(escena, camara);
+}
+
+animar();
+ barco3D.rotation.y += (-mouseX * 0.6 - barco3D.rotation.y) * 0.05;
+  }
+
+  renderer.render(escena, camara);
+}
+
+animar();
+ barco3D.rotation.y += (-mouseX * 0.6 - barco3D.rotation.y) * 0.05;
+  }
+
+  renderer.render(escena, camara);
+}
+
+animar();
+ barco3D.rotation.y += (-mouseX * 0.6 - barco3D.rotation.y) * 0.05;
+  }
+
+  renderer.render(escena, camara);
+}
+
+animar();
+ barco3D.rotation.y += (-mouseX * 0.6 - barco3D.rotation.y) * 0.05;
+  }
+
+  renderer.render(escena, camara);
+}
+
+animar();
+ barco3D.rotation.y += (-mouseX * 0.6 - barco3D.rotation.y) * 0.05;
   }
 
   renderer.render(escena, camara);

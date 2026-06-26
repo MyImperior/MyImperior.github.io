@@ -49,18 +49,41 @@
     }
 
     nav a:hover { color: #ffffff; }
+#niebla-overlay {
+  position: fixed;
+  top: 20%; left: 0; height: 80%;
+  width: 100%; height: 100%;
+background: radial-gradient(ellipse 42% 50% at 50% 75%, transparent 0%, transparent 25%, rgba(138,154,168,0.88) 60%, rgba(138,154,168,0.95) 100%);
+  linear-gradient(to right, rgba(138,154,168,0.92) 0%, transparent 42%),
+  linear-gradient(to left, rgba(138,154,168,0.92) 0%, transparent 42%),
+  linear-gradient(to top, rgba(138,154,168,0.75) 0%, transparent 45%);
+  z-index: 2;
+  pointer-events: none;
+}
   </style>
 </head>
 <body>
 <div id="fade-overlay" style="
   position: fixed;
-  top: 0; left: 0;
+  top: 20%; left: 0; height: 80%;
   width: 100%; height: 100%;
   background: #000;
   z-index: 100;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.8s;
+"></div>
+<div id="niebla-overlay"></div>
+<div id="punto-prueba" style="
+  position: fixed;
+  top: 8%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  background: red;
+  border-radius: 50%;
+  z-index: 1;
+  pointer-events: none;
 "></div>
   <div id="marco-memoria"></div>
 
@@ -110,7 +133,7 @@ marco.addEventListener('mouseleave', () => {
       const flash = document.createElement('div');
       flash.style.cssText = `
         position: fixed;
-        top: 0; left: 0;
+        top: 20%; left: 0; height: 80%;
         width: 100%; height: 100%;
         background: rgba(200, 220, 255, 0.15);
         z-index: 1;
