@@ -48,7 +48,7 @@ loaderFondo.load('imagenes/BARCO-LEJOS.jpg', (texFondo) => {
   const matFondo = new THREE.MeshBasicMaterial({ map: texFondo, fog: true });
   const planoFondo = new THREE.Mesh(geoFondo, matFondo);
   planoFondo.position.set(0, 0, -22);
-  escena.add(planoFondo);
+  //escena.add(planoFondo);
 });
 function crearTextura() {
   const canvas = document.createElement('canvas');
