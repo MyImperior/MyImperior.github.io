@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const escena = new THREE.Scene();
-escena.background = new THREE.Color(0x8a9aa8);
+
 escena.fog = new THREE.FogExp2(0x8a9aa8, 0.06);
 const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 camara.position.set(0, 0.5, 1);
@@ -11,11 +11,11 @@ camara.lookAt(0, 0.2,  -6);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0x8a9aa8, 1);
+renderer.setClearColor(0x000000, 0);
 renderer.domElement.style.position = 'fixed';
 renderer.domElement.style.top = '0';
 renderer.domElement.style.left = '0';
-renderer.domElement.style.zIndex = '-1';
+renderer.domElement.style.zIndex = '0';
 renderer.domElement.style.pointerEvents = 'none';
 document.body.appendChild(renderer.domElement);
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
