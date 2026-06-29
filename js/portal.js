@@ -31,6 +31,14 @@ const luzDireccional2 = new THREE.DirectionalLight(0xffffff, 2.5);
 luzDireccional2.position.set(-5, 3, -5);
 escena.add(luzDireccional2);
 escena.add(luzDireccional2);
+const loaderFondo = new THREE.TextureLoader();
+loaderFondo.load('imagenes/BARCO-LEJOS.jpg', (texFondo) => {
+  const geoFondo = new THREE.PlaneGeometry(120, 60);
+  const matFondo = new THREE.MeshBasicMaterial({ map: texFondo, fog: true });
+  const planoFondo = new THREE.Mesh(geoFondo, matFondo);
+  planoFondo.position.set(0, 8, -22);
+  escena.add(planoFondo);
+});
 function crearTextura() {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
@@ -71,7 +79,7 @@ const mat = new THREE.PointsMaterial({
 });
 
 const particulas = new THREE.Points(geo, mat);
-escena.add(particulas);
+//escena.add(particulas);
 
 // Suelo animado
 const grupoSuelo = new THREE.Group();
