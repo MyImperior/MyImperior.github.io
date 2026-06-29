@@ -33,10 +33,21 @@ escena.add(luzDireccional2);
 escena.add(luzDireccional2);
 const loaderFondo = new THREE.TextureLoader();
 loaderFondo.load('imagenes/BARCO-LEJOS.jpg', (texFondo) => {
-  const geoFondo = new THREE.PlaneGeometry(120, 60);
+  const aspect = window.innerWidth / window.innerHeight;
+  const imgAspect = 1036 / 868;
+  const geoFondo = new THREE.PlaneGeometry(40, 40 / aspect);
+  if (aspect > imgAspect) {
+    texFondo.repeat.set(1, aspect / imgAspect);
+    texFondo.offset.set(0, -(aspect / imgAspect - 1) / 2);
+  } else {
+    texFondo.repeat.set(imgAspect / aspect, 1);
+    texFondo.offset.set(-(imgAspect / aspect - 1) / 2, 0);
+  }
+  texFondo.wrapS = THREE.RepeatWrapping;
+  texFondo.wrapT = THREE.RepeatWrapping;
   const matFondo = new THREE.MeshBasicMaterial({ map: texFondo, fog: true });
   const planoFondo = new THREE.Mesh(geoFondo, matFondo);
-  planoFondo.position.set(0, 8, -22);
+  planoFondo.position.set(0, 0, -22);
   escena.add(planoFondo);
 });
 function crearTextura() {
