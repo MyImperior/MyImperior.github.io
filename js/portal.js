@@ -131,7 +131,7 @@ loaderBarco.load('3D/barco3d.glb', (gltf) => {
       obj.material.needsUpdate = true;
     }
   });
-});
+
   escena.add(barco3D);
 });
 
