@@ -3,11 +3,11 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const escena = new THREE.Scene();
-
 escena.fog = new THREE.Fog(0x8a9aa8, 8, 22);
+
 const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 camara.position.set(0, 0.5, 1);
-camara.lookAt(0, 0.2,  -6);
+camara.lookAt(0, 0.2, -6);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -18,8 +18,10 @@ renderer.domElement.style.left = '0';
 renderer.domElement.style.zIndex = '0';
 renderer.domElement.style.pointerEvents = 'none';
 document.body.appendChild(renderer.domElement);
+
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
 escena.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+
 const luzAmbiente = new THREE.AmbientLight(0xffffff, 2);
 escena.add(luzAmbiente);
 
@@ -30,26 +32,8 @@ escena.add(luzDireccional);
 const luzDireccional2 = new THREE.DirectionalLight(0xffffff, 2.5);
 luzDireccional2.position.set(-5, 3, -5);
 escena.add(luzDireccional2);
-escena.add(luzDireccional2);
-const loaderFondo = new THREE.TextureLoader();
-loaderFondo.load('imagenes/BARCO-LEJOS.jpg', (texFondo) => {
-  const aspect = window.innerWidth / window.innerHeight;
-  const imgAspect = 1036 / 868;
-  const geoFondo = new THREE.PlaneGeometry(40, 40 / aspect);
-  if (aspect > imgAspect) {
-    texFondo.repeat.set(1, aspect / imgAspect);
-    texFondo.offset.set(0, -(aspect / imgAspect - 1) / 2);
-  } else {
-    texFondo.repeat.set(imgAspect / aspect, 1);
-    texFondo.offset.set(-(imgAspect / aspect - 1) / 2, 0);
-  }
-  texFondo.wrapS = THREE.RepeatWrapping;
-  texFondo.wrapT = THREE.RepeatWrapping;
-  const matFondo = new THREE.MeshBasicMaterial({ map: texFondo, fog: true });
-  const planoFondo = new THREE.Mesh(geoFondo, matFondo);
-  planoFondo.position.set(0, 0, -22);
-  //escena.add(planoFondo);
-});
+
+// Partículas de niebla (desactivadas temporalmente)
 function crearTextura() {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
@@ -81,7 +65,7 @@ geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
 
 const mat = new THREE.PointsMaterial({
   map: crearTextura(),
- size: 4,
+  size: 4,
   transparent: true,
   opacity: 0.32,
   sizeAttenuation: true,
@@ -105,13 +89,12 @@ loaderSuelo.load('imagenes/suelonegro.jpg', (texturaSuelo) => {
   const geoSuelo = new THREE.PlaneGeometry(40, 40);
   const matSuelo = new THREE.MeshBasicMaterial({
     map: texturaSuelo,
-    depthWrite: false,
-    fog: false
+    depthWrite: false
   });
-const suelo = new THREE.Mesh(geoSuelo, matSuelo);
-suelo.rotation.x = -Math.PI / 2;
-grupoSuelo.add(suelo);
-grupoSuelo.position.set(0, -2, -6);
+  const suelo = new THREE.Mesh(geoSuelo, matSuelo);
+  suelo.rotation.x = -Math.PI / 2;
+  grupoSuelo.add(suelo);
+  grupoSuelo.position.set(0, -2, -6);
 
   window._texturaSuelo = texturaSuelo;
 });
@@ -125,23 +108,7 @@ loaderBarco.load('3D/barco3d.glb', (gltf) => {
   barco3D.scale.set(2, 2, 2);
   barco3D.position.set(0, -1, -9);
   escena.add(barco3D);
-  barco3D.traverse((obj) => {
-    if (obj.isMesh) {
-      const matAnterior = obj.material;
-      obj.material = new THREE.MeshStandardMaterial({
-        map: matAnterior.map,
-        color: matAnterior.color,
-        roughness: matAnterior.roughness,
-        metalness: matAnterior.metalness,
-        normalMap: matAnterior.normalMap,
-        fog: false
-      });
-    }
-  });
 });
-
-  escena.add(barco3D);
-
 
 let mouseX = 0;
 
@@ -178,8 +145,10 @@ function animar() {
   if (window._texturaSuelo) {
     window._texturaSuelo.offset.y += 0.025;
   }
-grupoSuelo.rotation.y += (-mouseX * 0.4 - grupoSuelo.rotation.y) * 0.05;
-grupoSuelo.rotation.y = Math.max(-0.43, Math.min(0.43, grupoSuelo.rotation.y));
+
+  grupoSuelo.rotation.y += (-mouseX * 0.4 - grupoSuelo.rotation.y) * 0.05;
+  grupoSuelo.rotation.y = Math.max(-0.43, Math.min(0.43, grupoSuelo.rotation.y));
+
   if (barco3D) {
     barco3D.rotation.y += (-mouseX * 0.6 - barco3D.rotation.y) * 0.05;
   }
