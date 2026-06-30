@@ -124,6 +124,12 @@ loaderBarco.load('3D/barco3d.glb', (gltf) => {
   barco3D = gltf.scene;
   barco3D.scale.set(2, 2, 2);
   barco3D.position.set(0, -1, -9);
+  barco3D.traverse((obj) => {
+    if (obj.isMesh) {
+      obj.material.fog = false;
+      obj.material.needsUpdate = true;
+    }
+  });
   escena.add(barco3D);
 });
 
