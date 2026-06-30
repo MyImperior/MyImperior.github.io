@@ -4,7 +4,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const escena = new THREE.Scene();
 
-escena.fog = new THREE.FogExp2(0x8a9aa8, 0.06);
+escena.fog = new THREE.Fog(0x8a9aa8, 8, 22);
 const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 camara.position.set(0, 0.5, 1);
 camara.lookAt(0, 0.2,  -6);
@@ -105,7 +105,8 @@ loaderSuelo.load('imagenes/suelonegro.jpg', (texturaSuelo) => {
   const geoSuelo = new THREE.PlaneGeometry(40, 40);
   const matSuelo = new THREE.MeshBasicMaterial({
     map: texturaSuelo,
-    depthWrite: false
+    depthWrite: false,
+    fog: false
   });
 const suelo = new THREE.Mesh(geoSuelo, matSuelo);
 suelo.rotation.x = -Math.PI / 2;
@@ -123,6 +124,14 @@ loaderBarco.load('3D/barco3d.glb', (gltf) => {
   barco3D = gltf.scene;
   barco3D.scale.set(2, 2, 2);
   barco3D.position.set(0, -1, -9);
+  barco3D.renderOrder = 999;
+  barco3D.traverse((obj) => {
+    if (obj.isMesh) {
+      obj.material.fog = false;
+      obj.material.depthTest = false;
+      obj.renderOrder = 999;
+    }
+  });
   escena.add(barco3D);
 });
 
