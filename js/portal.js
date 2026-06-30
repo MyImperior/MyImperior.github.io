@@ -127,13 +127,21 @@ loaderBarco.load('3D/barco3d.glb', (gltf) => {
   escena.add(barco3D);
   barco3D.traverse((obj) => {
     if (obj.isMesh) {
-      obj.material.fog = false;
-      obj.material.needsUpdate = true;
+      const matAnterior = obj.material;
+      obj.material = new THREE.MeshStandardMaterial({
+        map: matAnterior.map,
+        color: matAnterior.color,
+        roughness: matAnterior.roughness,
+        metalness: matAnterior.metalness,
+        normalMap: matAnterior.normalMap,
+        fog: false
+      });
     }
   });
+});
 
   escena.add(barco3D);
-});
+
 
 let mouseX = 0;
 
