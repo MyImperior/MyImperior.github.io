@@ -2,16 +2,13 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
-const escena = new THREE.Scene();
-escena.fog = new THREE.Fog(0x8a9aa8, 8, 22);
-
-const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-camara.position.set(0, 0.5, 1);
-camara.lookAt(0, 0.2, -6);
-
+// ─── RENDERER ────────────────────────────────────────────────────────────────
+// autoClear = false: el renderer NO limpia automáticamente entre renders.
+// Lo haremos a mano cada frame para poder hacer dos pasadas (suelo → barco).
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x000000, 0);
+renderer.autoClear = false;
 renderer.domElement.style.position = 'fixed';
 renderer.domElement.style.top = '0';
 renderer.domElement.style.left = '0';
@@ -19,21 +16,103 @@ renderer.domElement.style.zIndex = '0';
 renderer.domElement.style.pointerEvents = 'none';
 document.body.appendChild(renderer.domElement);
 
+// ─── CÁMARA (compartida entre las dos escenas) ────────────────────────────────
+const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+camara.position.set(0, 0.5, 1);
+camara.lookAt(0, 0.2, -6);
+
+// ─── ENVIRONMENT MAP (compartido entre las dos escenas) ──────────────────────
+// Esto es lo que hizo fallar el intento anterior: el env map se asignó solo a
+// una escena. Sin él, MeshStandardMaterial aparece completamente negro.
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
-escena.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
-const luzAmbiente = new THREE.AmbientLight(0xffffff, 2);
-escena.add(luzAmbiente);
+// ═════════════════════════════════════════════════════════════════════════════
+// ESCENA 1 — SUELO + NIEBLA
+// La niebla vive aquí. Todo lo que esté en esta escena se verá afectado por ella.
+// ═════════════════════════════════════════════════════════════════════════════
+const escena1 = new THREE.Scene();
+escena1.fog = new THREE.Fog(0x8a9aa8, 8, 22);
 
-const luzDireccional = new THREE.DirectionalLight(0xffffff, 2.5);
-luzDireccional.position.set(5, 5, 5);
-escena.add(luzDireccional);
+// Luz ambiental suave para que el suelo no quede en negro absoluto
+const luzAmbiente1 = new THREE.AmbientLight(0xffffff, 1.5);
+escena1.add(luzAmbiente1);
 
-const luzDireccional2 = new THREE.DirectionalLight(0xffffff, 2.5);
-luzDireccional2.position.set(-5, 3, -5);
-escena.add(luzDireccional2);
+// Luz cálida del casco proyectada hacia el suelo.
+// PointLight: emite en todas direcciones desde un punto.
+// Color 0xffaa44 = naranja cálido. Intensidad 4, rango 10 unidades.
+// Posición: donde está el casco del barco, ligeramente por encima del suelo.
+const luzCasco = new THREE.PointLight(0xffaa44, 4, 10);
+luzCasco.position.set(0, -1.2, -9);
+escena1.add(luzCasco);
 
-// Partículas de niebla (desactivadas temporalmente)
+// Suelo animado
+const grupoSuelo = new THREE.Group();
+escena1.add(grupoSuelo);
+
+const loaderSuelo = new THREE.TextureLoader();
+loaderSuelo.load('imagenes/suelonegro.jpg', (texturaSuelo) => {
+  texturaSuelo.wrapS = THREE.RepeatWrapping;
+  texturaSuelo.wrapT = THREE.RepeatWrapping;
+  texturaSuelo.repeat.set(20, 20);
+
+  const geoSuelo = new THREE.PlaneGeometry(40, 40);
+
+  // MeshStandardMaterial en lugar de MeshBasicMaterial:
+  // necesario para que el suelo reciba la luz del casco.
+  // roughness 0.9 = muy mate (escamas negras no son espejos).
+  // metalness 0.1 = casi nada de reflejo metálico.
+  const matSuelo = new THREE.MeshStandardMaterial({
+    map: texturaSuelo,
+    depthWrite: false,
+    roughness: 0.9,
+    metalness: 0.1
+  });
+
+  const suelo = new THREE.Mesh(geoSuelo, matSuelo);
+  suelo.rotation.x = -Math.PI / 2;
+  grupoSuelo.add(suelo);
+  grupoSuelo.position.set(0, -2, -6);
+
+  window._texturaSuelo = texturaSuelo;
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ESCENA 2 — BARCO (sin niebla)
+// No tiene fog asignado. El barco se renderiza siempre nítido,
+// independientemente de la niebla de escena1.
+// ═════════════════════════════════════════════════════════════════════════════
+const escena2 = new THREE.Scene();
+
+// CRÍTICO: sin esto el GLB aparece completamente negro.
+// MeshStandardMaterial necesita un environment map para calcular
+// la iluminación de reflexión ambiental.
+escena2.environment = envTexture;
+
+// Luces del barco (mismas que antes, ahora en escena2)
+const luzAmbiente2 = new THREE.AmbientLight(0xffffff, 2);
+escena2.add(luzAmbiente2);
+
+const luzDir1 = new THREE.DirectionalLight(0xffffff, 2.5);
+luzDir1.position.set(5, 5, 5);
+escena2.add(luzDir1);
+
+const luzDir2 = new THREE.DirectionalLight(0xffffff, 2.5);
+luzDir2.position.set(-5, 3, -5);
+escena2.add(luzDir2);
+
+let barco3D;
+const loaderBarco = new GLTFLoader();
+
+loaderBarco.load('3D/barco3d.glb', (gltf) => {
+  barco3D = gltf.scene;
+  barco3D.scale.set(2, 2, 2);
+  barco3D.position.set(0, -1, -9);
+  escena2.add(barco3D);
+});
+
+// ─── PARTÍCULAS DE NIEBLA (desactivadas, lógica preservada) ──────────────────
+// Cuando se reactive: escena1.add(particulas)
 function crearTextura() {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
@@ -74,44 +153,10 @@ const mat = new THREE.PointsMaterial({
 });
 
 const particulas = new THREE.Points(geo, mat);
-//escena.add(particulas);
+// escena1.add(particulas); ← descomentar cuando toque
 
-// Suelo animado
-const grupoSuelo = new THREE.Group();
-escena.add(grupoSuelo);
-
-const loaderSuelo = new THREE.TextureLoader();
-loaderSuelo.load('imagenes/suelonegro.jpg', (texturaSuelo) => {
-  texturaSuelo.wrapS = THREE.RepeatWrapping;
-  texturaSuelo.wrapT = THREE.RepeatWrapping;
-  texturaSuelo.repeat.set(20, 20);
-
-  const geoSuelo = new THREE.PlaneGeometry(40, 40);
-  const matSuelo = new THREE.MeshBasicMaterial({
-    map: texturaSuelo,
-    depthWrite: false
-  });
-  const suelo = new THREE.Mesh(geoSuelo, matSuelo);
-  suelo.rotation.x = -Math.PI / 2;
-  grupoSuelo.add(suelo);
-  grupoSuelo.position.set(0, -2, -6);
-
-  window._texturaSuelo = texturaSuelo;
-});
-
-// Barco 3D
-const loaderBarco = new GLTFLoader();
-let barco3D;
-
-loaderBarco.load('3D/barco3d.glb', (gltf) => {
-  barco3D = gltf.scene;
-  barco3D.scale.set(2, 2, 2);
-  barco3D.position.set(0, -1, -9);
-  escena.add(barco3D);
-});
-
+// ─── EVENTOS ─────────────────────────────────────────────────────────────────
 let mouseX = 0;
-
 document.addEventListener('mousemove', e => {
   mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
 });
@@ -122,38 +167,52 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+// ─── LOOP DE ANIMACIÓN ────────────────────────────────────────────────────────
 function animar() {
   requestAnimationFrame(animar);
 
+  // Lógica de partículas (se mantiene aunque no estén en ninguna escena)
   for (let i = 0; i < numParticulas; i++) {
     pos[i * 3 + 2] += vel[i];
-
     if (pos[i * 3 + 2] > -4) {
       pos[i * 3 + 1] = Math.random() * 12 - 4;
       pos[i * 3 + 2] = -(30 + Math.random() * 5);
     }
-
     const dx = pos[i * 3];
     const dy = pos[i * 3 + 1];
     if (Math.sqrt(dx * dx + dy * dy) < 8 && pos[i * 3 + 2] > -8) {
       pos[i * 3 + 2] = -(30 + Math.random() * 5);
     }
   }
-
   geo.attributes.position.needsUpdate = true;
 
+  // Animación textura suelo
   if (window._texturaSuelo) {
     window._texturaSuelo.offset.y += 0.025;
   }
 
+  // Rotación suelo con ratón
   grupoSuelo.rotation.y += (-mouseX * 0.4 - grupoSuelo.rotation.y) * 0.05;
   grupoSuelo.rotation.y = Math.max(-0.43, Math.min(0.43, grupoSuelo.rotation.y));
 
+  // Rotación barco con ratón (añadido clamp que faltaba en el original)
   if (barco3D) {
     barco3D.rotation.y += (-mouseX * 0.6 - barco3D.rotation.y) * 0.05;
+    barco3D.rotation.y = Math.max(-0.43, Math.min(0.43, barco3D.rotation.y));
   }
 
-  renderer.render(escena, camara);
+  // ── DOS PASADAS DE RENDER ─────────────────────────────────────────────────
+  // 1. Limpiamos color + depth buffer manualmente (autoClear está desactivado)
+  renderer.clear();
+
+  // 2. Renderizamos el suelo con niebla.
+  //    El depth buffer se rellena con la geometría del suelo.
+  renderer.render(escena1, camara);
+
+  // 3. Renderizamos el barco sin niebla, ENCIMA de lo anterior.
+  //    El depth buffer de escena1 sigue activo: el barco se integra
+  //    correctamente en profundidad con el suelo sin necesidad de limpiar nada.
+  renderer.render(escena2, camara);
 }
 
 animar();
