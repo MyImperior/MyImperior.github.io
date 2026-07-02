@@ -32,7 +32,7 @@ const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture
 // La niebla vive aquí. Todo lo que esté en esta escena se verá afectado por ella.
 // ═════════════════════════════════════════════════════════════════════════════
 const escena1 = new THREE.Scene();
-// escena1.fog = new THREE.Fog(0x8a9aa8, 8, 22);
+escena1.fog = new THREE.Fog(0x697174, 8, 22);
 
 // Luz ambiental suave para que el suelo no quede en negro absoluto
 const luzAmbiente1 = new THREE.AmbientLight(0xffffff, 1.5);
@@ -80,8 +80,7 @@ loaderSuelo.load('imagenes/suelonegro.jpg', (texturaSuelo) => {
     depthWrite: false,
     roughness: 0.9,
     metalness: 0.1,
-    transparent: true,    // necesario para que el alfa surta efecto
-    vertexColors: true    // necesario para que lea los colores por vértice
+        vertexColors: true    // necesario para que lea los colores por vértice
   });
 
   const suelo = new THREE.Mesh(geoSuelo, matSuelo);
