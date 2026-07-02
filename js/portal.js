@@ -92,12 +92,6 @@ loaderSuelo.load('imagenes/suelonegro.jpg', (texturaSuelo) => {
   window._texturaSuelo = texturaSuelo;
 });
 
-  const suelo = new THREE.Mesh(geoSuelo, matSuelo);
-  suelo.rotation.x = -Math.PI / 2;
-  grupoSuelo.add(suelo);
-  grupoSuelo.position.set(0, -2, -6);
-
-  window._texturaSuelo = texturaSuelo;
 
 // ═════════════════════════════════════════════════════════════════════════════
 // ESCENA 2 — BARCO (sin niebla)
