@@ -32,7 +32,7 @@ const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture
 // La niebla vive aquí. Todo lo que esté en esta escena se verá afectado por ella.
 // ═════════════════════════════════════════════════════════════════════════════
 const escena1 = new THREE.Scene();
-escena1.fog = new THREE.Fog(0x8a9aa8, 8, 22);
+// escena1.fog = new THREE.Fog(0x8a9aa8, 8, 22);
 
 // Luz ambiental suave para que el suelo no quede en negro absoluto
 const luzAmbiente1 = new THREE.AmbientLight(0xffffff, 1.5);
@@ -46,7 +46,7 @@ const luzCasco = new THREE.PointLight(0xffaa44, 6, 80, 0.5);
 luzCasco.position.set(0, -1.2, -7);
 escena1.add(luzCasco);
 
-// Suelo animado
+// Suelo animado (disco con desvanecido radial de opacidad)
 const grupoSuelo = new THREE.Group();
 escena1.add(grupoSuelo);
 
@@ -56,18 +56,41 @@ loaderSuelo.load('imagenes/suelonegro.jpg', (texturaSuelo) => {
   texturaSuelo.wrapT = THREE.RepeatWrapping;
   texturaSuelo.repeat.set(20, 20);
 
-  const geoSuelo = new THREE.PlaneGeometry(40, 40);
+  // CircleGeometry(radio, segmentos): disco de radio 20, 64 segmentos.
+  const geoSuelo = new THREE.CircleGeometry(20, 64);
 
-  // MeshStandardMaterial en lugar de MeshBasicMaterial:
-  // necesario para que el suelo reciba la luz del casco.
-  // roughness 0.9 = muy mate (escamas negras no son espejos).
-  // metalness 0.1 = casi nada de reflejo metálico.
+  // ── Desvanecido radial con vertex colors (RGBA) ──
+  // CircleGeometry: vértice 0 = centro, resto = perímetro.
+  // Centro opaco (alfa 1), borde transparente (alfa 0).
+  const numVertices = geoSuelo.attributes.position.count;
+  const colores = new Float32Array(numVertices * 4); // 4 = R,G,B,A
+
+  for (let i = 0; i < numVertices; i++) {
+    colores[i * 4]     = 1; // R
+    colores[i * 4 + 1] = 1; // G
+    colores[i * 4 + 2] = 1; // B
+    // Alfa: vértice 0 (centro) opaco; el resto (borde) transparente.
+    colores[i * 4 + 3] = (i === 0) ? 1 : 0;
+  }
+
+  geoSuelo.setAttribute('color', new THREE.BufferAttribute(colores, 4));
+
   const matSuelo = new THREE.MeshStandardMaterial({
     map: texturaSuelo,
     depthWrite: false,
     roughness: 0.9,
-    metalness: 0.1
+    metalness: 0.1,
+    transparent: true,    // necesario para que el alfa surta efecto
+    vertexColors: true    // necesario para que lea los colores por vértice
   });
+
+  const suelo = new THREE.Mesh(geoSuelo, matSuelo);
+  suelo.rotation.x = -Math.PI / 2;
+  grupoSuelo.add(suelo);
+  grupoSuelo.position.set(0, -2, -6);
+
+  window._texturaSuelo = texturaSuelo;
+});
 
   const suelo = new THREE.Mesh(geoSuelo, matSuelo);
   suelo.rotation.x = -Math.PI / 2;
