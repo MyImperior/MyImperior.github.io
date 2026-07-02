@@ -42,7 +42,7 @@ escena1.add(luzAmbiente1);
 // PointLight: emite en todas direcciones desde un punto.
 // Color 0xffaa44 = naranja cálido. Intensidad 4, rango 10 unidades.
 // Posición: donde está el casco del barco, ligeramente por encima del suelo.
-const luzCasco = new THREE.PointLight(0xffaa44, 6, 20, 1.5);
+const luzCasco = new THREE.PointLight(0xffaa44, 6, 80, 1.5);
 luzCasco.position.set(0, -1.2, -7);
 escena1.add(luzCasco);
 
