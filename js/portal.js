@@ -98,7 +98,6 @@ loaderSuelo.load('imagenes/suelonegro.jpg', (texturaSuelo) => {
   grupoSuelo.position.set(0, -2, -6);
 
   window._texturaSuelo = texturaSuelo;
-});
 
 // ═════════════════════════════════════════════════════════════════════════════
 // ESCENA 2 — BARCO (sin niebla)
