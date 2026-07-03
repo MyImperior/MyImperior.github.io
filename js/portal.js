@@ -54,10 +54,10 @@ const loaderSuelo = new THREE.TextureLoader();
 loaderSuelo.load('imagenes/suelonegro.jpg', (texturaSuelo) => {
   texturaSuelo.wrapS = THREE.RepeatWrapping;
   texturaSuelo.wrapT = THREE.RepeatWrapping;
-  texturaSuelo.repeat.set(20, 20);
+  texturaSuelo.repeat.set(60, 60);
 
   // CircleGeometry(radio, segmentos): disco de radio 20, 64 segmentos.
-  const geoSuelo = new THREE.CircleGeometry(20, 64);
+  const geoSuelo = new THREE.CircleGeometry(60, 64);
 
   // ── Desvanecido radial con vertex colors (RGBA) ──
   // CircleGeometry: vértice 0 = centro, resto = perímetro.
