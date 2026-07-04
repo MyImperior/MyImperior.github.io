@@ -32,7 +32,7 @@ const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture
 // La niebla vive aquí. Todo lo que esté en esta escena se verá afectado por ella.
 // ═════════════════════════════════════════════════════════════════════════════
 const escena1 = new THREE.Scene();
-// escena1.fog = new THREE.Fog(0x5d6568, 8, 22);
+escena1.fog = new THREE.Fog(0x5d6568, 8, 22);
 
 // Luz ambiental suave para que el suelo no quede en negro absoluto
 const luzAmbiente1 = new THREE.AmbientLight(0xffffff, 1.5);
