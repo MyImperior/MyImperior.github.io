@@ -26,7 +26,6 @@
       border: 2px solid #8a7040;
       background: rgba(0,0,0,0.4);
       z-index: 10;
-      
     }
 
     nav {
@@ -64,7 +63,7 @@
   transition: opacity 0.8s;
 "></div>
 
- <canvas id="niebla-canvas"></canvas>
+  <canvas id="niebla-canvas"></canvas>
 
   <div id="marco-memoria"></div>
 
@@ -88,58 +87,35 @@
       }
     });
 
-let temporizadorMemoria;
-const marco = document.getElementById('marco-memoria');
+    let temporizadorMemoria;
+    const marco = document.getElementById('marco-memoria');
 
-marco.addEventListener('mousedown', (e) => {
-  e.stopPropagation();
-  temporizadorMemoria = setTimeout(() => {
-    const overlay = document.getElementById('fade-overlay');
-    overlay.style.opacity = '1';
-    setTimeout(() => {
-      window.location.href = 'secciones/memoria.html';
-    }, 1200);
-  }, 5000);
-});
+    marco.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      temporizadorMemoria = setTimeout(() => {
+        const overlay = document.getElementById('fade-overlay');
+        overlay.style.opacity = '1';
+        setTimeout(() => {
+          window.location.href = 'secciones/memoria.html';
+        }, 1200);
+      }, 5000);
+    });
 
-marco.addEventListener('mouseup', () => {
-  clearTimeout(temporizadorMemoria);
-});
+    marco.addEventListener('mouseup', () => {
+      clearTimeout(temporizadorMemoria);
+    });
 
-marco.addEventListener('mouseleave', () => {
-  clearTimeout(temporizadorMemoria);
-});
-    // Sistema de rayos
-    function lanzarRayo() {
-      const flash = document.createElement('div');
-      flash.style.cssText = `
-        position: fixed;
-        top: 20%; left: 0; height: 80%;
-        width: 100%; height: 100%;
-        background: rgba(200, 220, 255, 0.15);
-        z-index: 1;
-        pointer-events: none;
-      `;
-      document.body.appendChild(flash);
-
-      setTimeout(() => {
-        flash.style.transition = 'opacity 0.12s';
-        flash.style.opacity = '0';
-        setTimeout(() => flash.remove(), 80);
-      }, 120);
-
-      setTimeout(lanzarRayo, 8000 + Math.random() * 10000);
-    }
-
-    setTimeout(lanzarRayo, 3000);
-
+    marco.addEventListener('mouseleave', () => {
+      clearTimeout(temporizadorMemoria);
+    });
   </script>
 
   <script type="importmap">
   {
     "imports": {
-"three": "./js/vendor/three/build/three.module.js",
-"three/addons/": "./js/vendor/three/examples/jsm/"    }
+      "three": "./js/vendor/three/build/three.module.js",
+      "three/addons/": "./js/vendor/three/examples/jsm/"
+    }
   }
   </script>
   <script type="module" src="js/portal.js"></script>

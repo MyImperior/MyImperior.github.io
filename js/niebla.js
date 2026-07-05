@@ -16,10 +16,12 @@ const COLOR_NIEBLA = 'rgba(138, 154, 168, 0.8)';
 // ─── RAYOS ───────────────────────────────────────────────────────────────────
 // Posiciones en fracción de pantalla (x, y) y radio en fracción del ancho.
 // AJUSTA ESTOS VALORES para colocar cada rayo sobre su objetivo:
-const POS_CIUDAD  = { x: 0.18, y: 0.52, radio: 0.15 };
-const POS_MONTANA = { x: 0.78, y: 0.48, radio: 0.15 };
+const POS_CIUDAD  = { x: 0.20, y: 0.48, radio: 0.10 };
+const POS_MONTANA = { x: 0.84, y: 0.42, radio: 0.10 };
 
-const DURACION_FOGONAZO = 350; // milisegundos de vida de cada fogonazo
+const DURACION_LUZ = 200;          // el resplandor: corto y seco
+const RETRASO_CLARO = 80;          // la transparencia empieza 80ms después
+const DURACION_CLARO = 500;        // y se desvanece más despacio
 
 let fogonazosActivos = []; // lista de fogonazos vivos en este momento
 
@@ -41,8 +43,8 @@ function programarRayoMontana() {
   lanzarFogonazo(POS_MONTANA);
   setTimeout(programarRayoMontana, 10000 + Math.random() * 10000);
 }
-setTimeout(programarRayoCiudad, 3000);
-setTimeout(programarRayoMontana, 6000);
+setTimeout(programarRayoCiudad, 500);
+setTimeout(programarRayoMontana, 500);
 
 // ─── DIBUJO DE UN FRAME ──────────────────────────────────────────────────────
 function dibujarNiebla() {
@@ -84,16 +86,18 @@ function dibujarNiebla() {
   // 2c. Claros temporales de los fogonazos activos
   const ahora = performance.now();
   fogonazosActivos = fogonazosActivos.filter(f => {
-    const edad = ahora - f.nacimiento;
-    if (edad > DURACION_FOGONAZO) return false; // fogonazo muerto: fuera
+const edad = ahora - f.nacimiento;
+    if (edad > RETRASO_CLARO + DURACION_CLARO) return false; // muere cuando acaba el claro
 
-    // Intensidad: sube instantáneo, baja durante la vida (1 → 0)
-    const intensidad = 1 - (edad / DURACION_FOGONAZO);
+    // El claro empieza tras el retraso y decae durante su propia duración:
+    const edadClaro = edad - RETRASO_CLARO;
+    const intensidad = edadClaro < 0 ? 0 : 1 - (edadClaro / DURACION_CLARO);
 
     const fx = w * f.x, fy = h * f.y, fr = w * f.radio;
     const gradF = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
-    gradF.addColorStop(0, `rgba(0,0,0,${intensidad})`);   // centro: borra según intensidad
-    gradF.addColorStop(1, 'rgba(0,0,0,0)');               // borde: no borra
+   gradF.addColorStop(0,    `rgba(0,0,0,${intensidad})`);
+    gradF.addColorStop(0.75, `rgba(0,0,0,${intensidad})`);
+    gradF.addColorStop(1,    'rgba(0,0,0,0)');             // borde: no borra
     ctx.fillStyle = gradF;
     ctx.beginPath();
     ctx.arc(fx, fy, fr, 0, Math.PI * 2);
@@ -106,13 +110,14 @@ function dibujarNiebla() {
   ctx.globalCompositeOperation = 'source-over';
 
   for (const f of fogonazosActivos) {
-    const edad = ahora - f.nacimiento;
-    const intensidad = 1 - (edad / DURACION_FOGONAZO);
+   const edad = ahora - f.nacimiento;
+    if (edad > DURACION_LUZ) continue; // la luz ya murió, solo queda el claro
+    const intensidad = 1 - (edad / DURACION_LUZ);
     const fx = w * f.x, fy = h * f.y, fr = w * f.radio;
     const gradLuz = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
-    gradLuz.addColorStop(0, `rgba(220,235,255,${0.35 * intensidad})`);
-    gradLuz.addColorStop(0.4, `rgba(180,210,255,${0.15 * intensidad})`);
-    gradLuz.addColorStop(1, 'rgba(180,210,255,0)');
+gradLuz.addColorStop(0,    `rgba(220,235,255,${0.35 * intensidad})`);
+    gradLuz.addColorStop(0.75, `rgba(180,210,255,${0.15 * intensidad})`);
+    gradLuz.addColorStop(1,    'rgba(180,210,255,0)');
     ctx.fillStyle = gradLuz;
     ctx.beginPath();
     ctx.arc(fx, fy, fr, 0, Math.PI * 2);
