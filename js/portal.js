@@ -19,7 +19,7 @@ document.body.appendChild(renderer.domElement);
 // ─── CÁMARA (compartida entre las dos escenas) ────────────────────────────────
 const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 camara.position.set(0, 0.5, 1);
-camara.lookAt(0, 0.2, -6);
+camara.lookAt(0, 0.3, -6);
 
 // ─── ENVIRONMENT MAP (compartido entre las dos escenas) ──────────────────────
 // Esto es lo que hizo fallar el intento anterior: el env map se asignó solo a
