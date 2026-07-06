@@ -18,8 +18,8 @@ document.body.appendChild(renderer.domElement);
 
 // ─── CÁMARA (compartida entre las dos escenas) ────────────────────────────────
 const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-camara.position.set(0, 0.5, 1);
-camara.lookAt(0, 0.3, -6);
+camara.position.set(0, 0.5, 2);
+camara.lookAt(0, 0.5, -6);
 
 // ─── ENVIRONMENT MAP (compartido entre las dos escenas) ──────────────────────
 // Esto es lo que hizo fallar el intento anterior: el env map se asignó solo a
@@ -203,7 +203,7 @@ function animar() {
 
   // Animación textura suelo
   if (window._texturaSuelo) {
-    window._texturaSuelo.offset.y += 0.025;
+    window._texturaSuelo.offset.y += 0.035;
   }
 
   // Rotación suelo con ratón

@@ -22,7 +22,15 @@ const POS_MONTANA = { x: 0.84, y: 0.42, radio: 0.10 };
 const DURACION_LUZ = 200;          // el resplandor: corto y seco
 const RETRASO_CLARO = 80;          // la transparencia empieza 80ms después
 const DURACION_CLARO = 500;        // y se desvanece más despacio
+// ─── FLASH GENERAL ───────────────────────────────────────────────────────────
+const DURACION_FLASH = 250;
+let flashNacimiento = -99999; // instante del último flash (valor viejo = inactivo)
 
+function programarFlash() {
+  flashNacimiento = performance.now();
+  setTimeout(programarFlash, 8000 + Math.random() * 10000);
+}
+setTimeout(programarFlash, 3000);
 let fogonazosActivos = []; // lista de fogonazos vivos en este momento
 
 function lanzarFogonazo(pos) {
@@ -109,13 +117,13 @@ const edad = ahora - f.nacimiento;
   // 3. Volver a modo pintar: el resplandor de los fogonazos
   ctx.globalCompositeOperation = 'source-over';
 
-  for (const f of fogonazosActivos) {
-   const edad = ahora - f.nacimiento;
-    if (edad > DURACION_LUZ) continue; // la luz ya murió, solo queda el claro
+for (const f of fogonazosActivos) {
+    const edad = ahora - f.nacimiento;
+    if (edad > DURACION_LUZ) continue;
     const intensidad = 1 - (edad / DURACION_LUZ);
     const fx = w * f.x, fy = h * f.y, fr = w * f.radio;
     const gradLuz = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
-gradLuz.addColorStop(0,    `rgba(220,235,255,${0.35 * intensidad})`);
+    gradLuz.addColorStop(0,    `rgba(220,235,255,${0.35 * intensidad})`);
     gradLuz.addColorStop(0.75, `rgba(180,210,255,${0.15 * intensidad})`);
     gradLuz.addColorStop(1,    'rgba(180,210,255,0)');
     ctx.fillStyle = gradLuz;
@@ -123,8 +131,17 @@ gradLuz.addColorStop(0,    `rgba(220,235,255,${0.35 * intensidad})`);
     ctx.arc(fx, fy, fr, 0, Math.PI * 2);
     ctx.fill();
   }
-}
 
+  // ── Flash general: ilumina solo la niebla, heredando su transparencia ──
+  const edadFlash = ahora - flashNacimiento;
+  if (edadFlash < DURACION_FLASH) {
+    const intensidadFlash = 1 - (edadFlash / DURACION_FLASH);
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = `rgba(200, 220, 255, ${0.35 * intensidadFlash})`;
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+}
 // ─── BUCLE DE ANIMACIÓN ──────────────────────────────────────────────────────
 function ajustarTamano() {
   canvasNiebla.width = window.innerWidth;
