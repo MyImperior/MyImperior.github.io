@@ -60,7 +60,7 @@ loaderFondo.load('imagenes/fondo.jpg', (texturaFondo) => {
 
   const fondo = new THREE.Mesh(geoFondo, matFondo);
   // Posición: lejos en Z, y la altura Y es TU PALANCA de alineación del horizonte
-  fondo.position.set(0, 0, -40);
+  fondo.position.set(0, -6, -40);
   escena1.add(fondo);
 });
 // Suelo animado (disco con desvanecido radial de opacidad)
