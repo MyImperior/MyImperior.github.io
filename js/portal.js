@@ -45,7 +45,24 @@ escena1.add(luzAmbiente1);
 const luzCasco = new THREE.PointLight(0xffaa44, 6, 80, 0.5);
 luzCasco.position.set(0, -1.2, -7);
 escena1.add(luzCasco);
+// ─── FONDO 3D ────────────────────────────────────────────────────────────────
+// La imagen de fondo como telón dentro de la escena: mismo sistema de
+// proyección que el suelo → horizontes alineados por construcción.
+const loaderFondo = new THREE.TextureLoader();
+loaderFondo.load('imagenes/fondo.jpg', (texturaFondo) => {
+  texturaFondo.colorSpace = THREE.SRGBColorSpace; // colores fieles al archivo
 
+  const geoFondo = new THREE.PlaneGeometry(68, 57); // sobredimensionado a propósito
+  const matFondo = new THREE.MeshBasicMaterial({
+    map: texturaFondo,
+    fog: false   // el fondo es lo infinitamente lejano: la niebla no lo tiñe
+  });
+
+  const fondo = new THREE.Mesh(geoFondo, matFondo);
+  // Posición: lejos en Z, y la altura Y es TU PALANCA de alineación del horizonte
+  fondo.position.set(0, 0, -40);
+  escena1.add(fondo);
+});
 // Suelo animado (disco con desvanecido radial de opacidad)
 const grupoSuelo = new THREE.Group();
 escena1.add(grupoSuelo);
