@@ -16,8 +16,8 @@ const COLOR_NIEBLA = 'rgba(138, 154, 168, 0.8)';
 // ─── RAYOS ───────────────────────────────────────────────────────────────────
 // Posiciones en fracción de pantalla (x, y) y radio en fracción del ancho.
 // AJUSTA ESTOS VALORES para colocar cada rayo sobre su objetivo:
-const POS_CIUDAD  = { x: 0.20, y: 0.53, radio: 0.10 };
-const POS_MONTANA = { x: 0.84, y: 0.54, radio: 0.10 };
+const POS_CIUDAD  = { x: 0.20, y: 0.56, radio: 0.10 };
+const POS_MONTANA = { x: 0.84, y: 0.57, radio: 0.10 };
 
 const DURACION_LUZ = 200;          // el resplandor: corto y seco
 const RETRASO_CLARO = 80;          // la transparencia empieza 80ms después
