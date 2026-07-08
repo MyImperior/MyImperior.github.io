@@ -106,11 +106,15 @@ const edad = ahora - f.nacimiento;
    gradF.addColorStop(0,    `rgba(0,0,0,${intensidad})`);
     gradF.addColorStop(0.75, `rgba(0,0,0,${intensidad})`);
     gradF.addColorStop(1,    'rgba(0,0,0,0)');             // borde: no borra
+  ctx.save();                          // guardamos el estado (el clip es temporal)
+    ctx.beginPath();
+    ctx.rect(fx - fr, fy - fr, fr * 2, fr);  // ventana: solo la mitad SUPERIOR
+    ctx.clip();                          // a partir de aquí, solo se pinta dentro
     ctx.fillStyle = gradF;
     ctx.beginPath();
     ctx.arc(fx, fy, fr, 0, Math.PI * 2);
     ctx.fill();
-
+    ctx.restore();                       // fin del recorte
     return true; // sigue vivo
   });
 
@@ -126,10 +130,15 @@ for (const f of fogonazosActivos) {
     gradLuz.addColorStop(0,    `rgba(220,235,255,${0.35 * intensidad})`);
     gradLuz.addColorStop(0.75, `rgba(180,210,255,${0.15 * intensidad})`);
     gradLuz.addColorStop(1,    'rgba(180,210,255,0)');
+ ctx.save();
+    ctx.beginPath();
+    ctx.rect(fx - fr, fy - fr, fr * 2, fr);
+    ctx.clip();
     ctx.fillStyle = gradLuz;
     ctx.beginPath();
     ctx.arc(fx, fy, fr, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
   }
 
   // ── Flash general: ilumina solo la niebla, heredando su transparencia ──
