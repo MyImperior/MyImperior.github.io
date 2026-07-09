@@ -161,14 +161,14 @@ function crearTextura() {
   return new THREE.CanvasTexture(canvas);
 }
 
-const numParticulas = 5000;
+const numParticulas = 1800;
 const geo = new THREE.BufferGeometry();
 const pos = new Float32Array(numParticulas * 3);
 const vel = new Float32Array(numParticulas);
 
 for (let i = 0; i < numParticulas; i++) {
   pos[i * 3]     = (Math.random() - 0.5) * 80;
-  pos[i * 3 + 1] = Math.random() * 12 - 4;
+  pos[i * 3 + 1] = Math.random() * 10 - 1.8;
   pos[i * 3 + 2] = -(Math.random() * 30 + 5);
   vel[i]         = 0.04 + Math.random() * 0.04;
 }
@@ -177,9 +177,9 @@ geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
 
 const mat = new THREE.PointsMaterial({
   map: crearTextura(),
-  size: 1.5,
+  size: 12,
   transparent: true,
-  opacity: 0.32,
+  opacity: 0.08,
   sizeAttenuation: true,
   depthWrite: false,
   blending: THREE.NormalBlending
@@ -211,7 +211,7 @@ function animar() {
     if (pos[i * 3] > 40) pos[i * 3] -= 80;
     if (pos[i * 3] < -40) pos[i * 3] += 80;
     if (pos[i * 3 + 2] > -4) {
-      pos[i * 3 + 1] = Math.random() * 12 - 4;
+      pos[i * 3 + 1] = Math.random() * 10 - 1.8;
       pos[i * 3 + 2] = -(30 + Math.random() * 5);
     }
     const dx = pos[i * 3];
