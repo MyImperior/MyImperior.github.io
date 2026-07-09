@@ -16,8 +16,8 @@ const COLOR_NIEBLA = 'rgba(138, 154, 168, 0.8)';
 // ─── RAYOS ───────────────────────────────────────────────────────────────────
 // Posiciones en fracción de pantalla (x, y) y radio en fracción del ancho.
 // AJUSTA ESTOS VALORES para colocar cada rayo sobre su objetivo:
-const POS_CIUDAD  = { x: 0.18, y: 0.57, radio: 0.13 };
-const POS_MONTANA = { x: 0.89, y: 0.57, radio: 0.11 };
+const POS_CIUDAD  = { x: 0.15, y: 0.57, radio: 0.13, estiramientoY: 1 };
+const POS_MONTANA = { x: 0.89, y: 0.57, radio: 0.11, estiramientoY: 1.3 };
 
 const DURACION_LUZ = 200;          // el resplandor: corto y seco
 const RETRASO_CLARO = 80;          // la transparencia empieza 80ms después
@@ -104,7 +104,7 @@ const edad = ahora - f.nacimiento;
     const fx = w * f.x, fy = h * f.y, fr = w * f.radio;
     const gradF = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
    gradF.addColorStop(0,    `rgba(0,0,0,${intensidad})`);
-    gradF.addColorStop(0.75, `rgba(0,0,0,${intensidad})`);
+    gradF.addColorStop(0.5, `rgba(0,0,0,${intensidad})`);
     gradF.addColorStop(1,    'rgba(0,0,0,0)');             // borde: no borra
   ctx.save();                          // guardamos el estado (el clip es temporal)
     ctx.beginPath();
@@ -128,7 +128,7 @@ for (const f of fogonazosActivos) {
     const fx = w * f.x, fy = h * f.y, fr = w * f.radio;
     const gradLuz = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
     gradLuz.addColorStop(0,    `rgba(220,235,255,${0.35 * intensidad})`);
-    gradLuz.addColorStop(0.75, `rgba(180,210,255,${0.15 * intensidad})`);
+    gradLuz.addColorStop(0.5, `rgba(180,210,255,${0.15 * intensidad})`);
     gradLuz.addColorStop(1,    'rgba(180,210,255,0)');
  ctx.save();
     ctx.beginPath();
