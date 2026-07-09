@@ -161,7 +161,7 @@ function crearTextura() {
   return new THREE.CanvasTexture(canvas);
 }
 
-const numParticulas = 2500;
+const numParticulas = 5000;
 const geo = new THREE.BufferGeometry();
 const pos = new Float32Array(numParticulas * 3);
 const vel = new Float32Array(numParticulas);
@@ -177,7 +177,7 @@ geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
 
 const mat = new THREE.PointsMaterial({
   map: crearTextura(),
-  size: 4,
+  size: 1.5,
   transparent: true,
   opacity: 0.32,
   sizeAttenuation: true,
