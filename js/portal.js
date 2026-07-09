@@ -207,6 +207,7 @@ function animar() {
   // Lógica de partículas (se mantiene aunque no estén en ninguna escena)
   for (let i = 0; i < numParticulas; i++) {
     pos[i * 3 + 2] += vel[i];
+    pos[i * 3] += grupoSuelo.rotation.y * vel[i] * 2.5;
     if (pos[i * 3 + 2] > -4) {
       pos[i * 3 + 1] = Math.random() * 12 - 4;
       pos[i * 3 + 2] = -(30 + Math.random() * 5);
