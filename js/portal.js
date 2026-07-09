@@ -145,7 +145,7 @@ loaderBarco.load('3D/barco3d.glb', (gltf) => {
 });
 
 // ─── PARTÍCULAS DE NIEBLA (desactivadas, lógica preservada) ──────────────────
-// Cuando se reactive: escena1.add(particulas)
+escena1.add(particulas)
 function crearTextura() {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
