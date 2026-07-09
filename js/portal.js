@@ -145,7 +145,7 @@ loaderBarco.load('3D/barco3d.glb', (gltf) => {
 });
 
 // ─── PARTÍCULAS DE NIEBLA (desactivadas, lógica preservada) ──────────────────
-escena1.add(particulas)
+// escena1.add(particulas)
 function crearTextura() {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
@@ -186,7 +186,7 @@ const mat = new THREE.PointsMaterial({
 });
 
 const particulas = new THREE.Points(geo, mat);
-// escena1.add(particulas); ← descomentar cuando toque
+escena1.add(particulas); 
 
 // ─── EVENTOS ─────────────────────────────────────────────────────────────────
 let mouseX = 0;
