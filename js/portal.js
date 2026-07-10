@@ -174,12 +174,20 @@ for (let i = 0; i < numParticulas; i++) {
 }
 
 geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+// Color RGBA por partícula (para el halo de luz del mástil)
+const col = new Float32Array(numParticulas * 4);
+geo.setAttribute('color', new THREE.BufferAttribute(col, 4));
 
+// Punto de la luz del mástil (coordenadas de mundo) y parámetros del halo
+const LUZ_MASTIL = { x: 0, y: 1, z: -9 };
+const RADIO_HALO = 7;
+const OPACIDAD_BASE = 0.08;
+const OPACIDAD_HALO = 0.35;
 const mat = new THREE.PointsMaterial({
   map: crearTextura(),
   size: 12,
   transparent: true,
-  opacity: 0.08,
+  vertexColors: true,
   sizeAttenuation: true,
   depthWrite: false,
   blending: THREE.NormalBlending
@@ -210,6 +218,19 @@ function animar() {
     pos[i * 3] += grupoSuelo.rotation.y * vel[i] * 1.5;
     if (pos[i * 3] > 40) pos[i * 3] -= 80;
     if (pos[i * 3] < -40) pos[i * 3] += 80;
+    // ── Halo: teñir según cercanía a la luz del mástil ──
+    const hx = pos[i * 3]     - LUZ_MASTIL.x;
+    const hy = pos[i * 3 + 1] - LUZ_MASTIL.y;
+    const hz = pos[i * 3 + 2] - LUZ_MASTIL.z;
+    const dist = Math.sqrt(hx * hx + hy * hy + hz * hz);
+    let factor = 1 - dist / RADIO_HALO;
+    if (factor < 0) factor = 0;
+    factor = factor * factor;
+
+    col[i * 4]     = 0.55 + factor * 0.45;
+    col[i * 4 + 1] = 0.60 + factor * 0.07;
+    col[i * 4 + 2] = 0.65 - factor * 0.38;
+    col[i * 4 + 3] = OPACIDAD_BASE + factor * (OPACIDAD_HALO - OPACIDAD_BASE);
     if (pos[i * 3 + 2] > -4) {
       pos[i * 3 + 1] = Math.random() * 10 - 1.8;
       pos[i * 3 + 2] = -(30 + Math.random() * 5);
@@ -221,6 +242,7 @@ function animar() {
     }
   }
   geo.attributes.position.needsUpdate = true;
+  geo.attributes.color.needsUpdate = true;
 
   // Animación textura suelo
   if (window._texturaSuelo) {
