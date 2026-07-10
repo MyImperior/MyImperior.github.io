@@ -183,7 +183,7 @@ const LUZ_MASTIL = { x: 0, y: 1, z: -9 };
 const RADIO_CLARO = 7;        // radio del claro: dentro, las partículas se desvanecen
 const ANCHO_TRANSICION = 3;   // suavidad del borde del claro
 const ANCHO_ANILLO = 3;       // grosor del anillo de luz en la frontera
-const OPACIDAD_BASE = 0.08;
+const OPACIDAD_BASE = 0.25;
 const OPACIDAD_HALO = 0.55;
 const mat = new THREE.PointsMaterial({
   map: crearTextura(),
@@ -249,11 +249,7 @@ function animar() {
     col[i * 4 + 1] = 0.60 + brillo * 0.07;
     col[i * 4 + 2] = 0.65 - brillo * 0.38;
     col[i * 4 + 3] = (OPACIDAD_BASE + brillo * (OPACIDAD_HALO - OPACIDAD_BASE)) * visibilidad;
-    const dx = pos[i * 3];
-    const dy = pos[i * 3 + 1];
-    if (Math.sqrt(dx * dx + dy * dy) < 4 && pos[i * 3 + 2] > -8) {
-      pos[i * 3 + 2] = -(30 + Math.random() * 5);
-    }
+  
   }
   
   geo.attributes.position.needsUpdate = true;
