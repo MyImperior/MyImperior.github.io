@@ -182,7 +182,7 @@ geo.setAttribute('color', new THREE.BufferAttribute(col, 4));
 const LUZ_MASTIL = { x: 0, y: 1, z: -9 };
 const RADIO_HALO = 10;
 const OPACIDAD_BASE = 0.08;
-const OPACIDAD_HALO = 0,55;
+const OPACIDAD_HALO = 0.55;
 const mat = new THREE.PointsMaterial({
   map: crearTextura(),
   size: 12,
