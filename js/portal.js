@@ -180,12 +180,14 @@ geo.setAttribute('color', new THREE.BufferAttribute(col, 4));
 
 // Punto de la luz del mástil (coordenadas de mundo) y parámetros del halo
 const LUZ_MASTIL = { x: 0, y: 1, z: -9 };
-const RADIO_HALO = 10;
+const RADIO_CLARO = 7;        // radio del claro: dentro, las partículas se desvanecen
+const ANCHO_TRANSICION = 3;   // suavidad del borde del claro
+const ANCHO_ANILLO = 3;       // grosor del anillo de luz en la frontera
 const OPACIDAD_BASE = 0.08;
 const OPACIDAD_HALO = 0.55;
 const mat = new THREE.PointsMaterial({
   map: crearTextura(),
-  size: 12,
+  size: 7,
   transparent: true,
   vertexColors: true,
   sizeAttenuation: true,
@@ -195,39 +197,7 @@ const mat = new THREE.PointsMaterial({
 
 const particulas = new THREE.Points(geo, mat);
 escena1.add(particulas); 
-// ─── BRUMA DEL HALO (población dedicada alrededor del mástil) ────────────────
-const numBruma = 400;
-const geoBruma = new THREE.BufferGeometry();
-const posBruma = new Float32Array(numBruma * 3);
-const colBruma = new Float32Array(numBruma * 4);
-const faseBruma = new Float32Array(numBruma); // fase de deriva individual
 
-for (let i = 0; i < numBruma; i++) {
-  // Distribución esférica alrededor de la luz, más densa hacia el centro
-  const angulo = Math.random() * Math.PI * 2;
-  const alturaRel = Math.random() * 2 - 1;
-  const radial = 2 + Math.random() * Math.random() * 8; // 2 a 10, sesgado a cerca
-  posBruma[i * 3]     = LUZ_MASTIL.x + Math.cos(angulo) * radial;
-  posBruma[i * 3 + 1] = LUZ_MASTIL.y + alturaRel * 4;
-  posBruma[i * 3 + 2] = LUZ_MASTIL.z + Math.sin(angulo) * radial;
-  faseBruma[i] = Math.random() * Math.PI * 2;
-}
-
-geoBruma.setAttribute('position', new THREE.BufferAttribute(posBruma, 3));
-geoBruma.setAttribute('color', new THREE.BufferAttribute(colBruma, 4));
-
-const matBruma = new THREE.PointsMaterial({
-  map: crearTextura(),
-  size: 8,
-  transparent: true,
-  vertexColors: true,
-  sizeAttenuation: true,
-  depthWrite: false,
-  blending: THREE.NormalBlending
-});
-
-const bruma = new THREE.Points(geoBruma, matBruma);
-escena1.add(bruma);
 // ─── EVENTOS ─────────────────────────────────────────────────────────────────
 let mouseX = 0;
 document.addEventListener('mousemove', e => {
@@ -250,51 +220,42 @@ function animar() {
     pos[i * 3] += grupoSuelo.rotation.y * vel[i] * 1.5;
     if (pos[i * 3] > 40) pos[i * 3] -= 80;
     if (pos[i * 3] < -40) pos[i * 3] += 80;
-    // ── Halo: teñir según cercanía a la luz del mástil ──
-    const hx = pos[i * 3]     - LUZ_MASTIL.x;
-    const hy = pos[i * 3 + 1] - LUZ_MASTIL.y;
-    const hz = pos[i * 3 + 2] - LUZ_MASTIL.z;
-    const dist = Math.sqrt(hx * hx + hy * hy + hz * hz);
-    let factor = 1 - dist / RADIO_HALO;
-    if (factor < 0) factor = 0;
-    factor = factor * factor;
-
-    col[i * 4]     = 0.55 + factor * 0.45;
-    col[i * 4 + 1] = 0.60 + factor * 0.07;
-    col[i * 4 + 2] = 0.65 - factor * 0.38;
-    col[i * 4 + 3] = OPACIDAD_BASE + factor * (OPACIDAD_HALO - OPACIDAD_BASE);
+// ── Reciclaje en Z (partícula que llega a la cámara vuelve al fondo) ──
     if (pos[i * 3 + 2] > -4) {
       pos[i * 3 + 1] = Math.random() * 10 - 1.8;
       pos[i * 3 + 2] = -(30 + Math.random() * 5);
     }
+
+    // ── Claro atenuado + anillo de luz en su frontera ──
+    // Distancia 3D de la partícula al centro del barco/mástil:
+    const hx = pos[i * 3]     - LUZ_MASTIL.x;
+    const hy = pos[i * 3 + 1] - LUZ_MASTIL.y;
+    const hz = pos[i * 3 + 2] - LUZ_MASTIL.z;
+    const dist = Math.sqrt(hx * hx + hy * hy + hz * hz);
+
+    // Atenuación: dentro de RADIO_CLARO el alfa cae a casi nada (claro del barco).
+    // Transición suave entre RADIO_CLARO y el exterior.
+    let visibilidad = (dist - RADIO_CLARO) / ANCHO_TRANSICION;
+    if (visibilidad < 0.05) visibilidad = 0.05; // nunca invisible del todo
+    if (visibilidad > 1) visibilidad = 1;
+
+    // Anillo: máximo justo en la frontera del claro, cayendo hacia ambos lados.
+    const distAnillo = Math.abs(dist - RADIO_CLARO) / ANCHO_ANILLO;
+    let brillo = 1 - distAnillo;
+    if (brillo < 0) brillo = 0;
+    brillo = brillo * brillo;
+
+    col[i * 4]     = 0.55 + brillo * 0.45;
+    col[i * 4 + 1] = 0.60 + brillo * 0.07;
+    col[i * 4 + 2] = 0.65 - brillo * 0.38;
+    col[i * 4 + 3] = (OPACIDAD_BASE + brillo * (OPACIDAD_HALO - OPACIDAD_BASE)) * visibilidad;
     const dx = pos[i * 3];
     const dy = pos[i * 3 + 1];
     if (Math.sqrt(dx * dx + dy * dy) < 4 && pos[i * 3 + 2] > -8) {
       pos[i * 3 + 2] = -(30 + Math.random() * 5);
     }
   }
-  // ── Bruma del halo: deriva lenta orbital + tinte por cercanía ──
-  const t = performance.now() * 0.0002;
-  for (let i = 0; i < numBruma; i++) {
-    // Deriva suave: cada partícula ondula alrededor de su posición
-    posBruma[i * 3]     += Math.sin(t + faseBruma[i]) * 0.008;
-    posBruma[i * 3 + 1] += Math.cos(t * 1.3 + faseBruma[i]) * 0.005;
-
-    const bx = posBruma[i * 3]     - LUZ_MASTIL.x;
-    const by = posBruma[i * 3 + 1] - LUZ_MASTIL.y;
-    const bz = posBruma[i * 3 + 2] - LUZ_MASTIL.z;
-    const d = Math.sqrt(bx * bx + by * by + bz * bz);
-    let f = 1 - d / RADIO_HALO;
-    if (f < 0) f = 0;
-    f = f * f;
-
-    colBruma[i * 4]     = 0.55 + f * 0.45;
-    colBruma[i * 4 + 1] = 0.60 + f * 0.07;
-    colBruma[i * 4 + 2] = 0.65 - f * 0.38;
-    colBruma[i * 4 + 3] = 0.04 + f * 0.5;
-  }
-  geoBruma.attributes.position.needsUpdate = true;
-  geoBruma.attributes.color.needsUpdate = true;
+  
   geo.attributes.position.needsUpdate = true;
   geo.attributes.color.needsUpdate = true;
 
