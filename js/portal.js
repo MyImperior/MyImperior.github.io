@@ -180,9 +180,9 @@ geo.setAttribute('color', new THREE.BufferAttribute(col, 4));
 
 // Punto de la luz del mástil (coordenadas de mundo) y parámetros del halo
 const LUZ_MASTIL = { x: 0, y: 1, z: -9 };
-const RADIO_HALO = 7;
+const RADIO_HALO = 10;
 const OPACIDAD_BASE = 0.08;
-const OPACIDAD_HALO = 0.35;
+const OPACIDAD_HALO = 0.55;
 const mat = new THREE.PointsMaterial({
   map: crearTextura(),
   size: 12,
@@ -237,7 +237,7 @@ function animar() {
     }
     const dx = pos[i * 3];
     const dy = pos[i * 3 + 1];
-    if (Math.sqrt(dx * dx + dy * dy) < 8 && pos[i * 3 + 2] > -8) {
+    if (Math.sqrt(dx * dx + dy * dy) < 4 && pos[i * 3 + 2] > -8) {
       pos[i * 3 + 2] = -(30 + Math.random() * 5);
     }
   }
