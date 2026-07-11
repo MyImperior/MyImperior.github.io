@@ -192,12 +192,16 @@ const OPACIDAD_BASE = 0.25;
 const mat = new THREE.PointsMaterial({
   map: crearTextura(),
   size: 7,
-  transparent: true,
+transparent: true,
+  opacity: OPACIDAD_BASE,
   vertexColors: true,
   sizeAttenuation: true,
   depthWrite: false,
   blending: THREE.NormalBlending
 });
+export function setOpacidadParticulas(v) {
+  mat.opacity = v;
+}
 
 const particulas = new THREE.Points(geo, mat);
 escena1.add(particulas); 
@@ -232,7 +236,7 @@ function animar() {
     col[i * 4]     = 0.55;
     col[i * 4 + 1] = 0.60;
     col[i * 4 + 2] = 0.65;
-    col[i * 4 + 3] = OPACIDAD_BASE;
+   col[i * 4 + 3] = 1.0;
   }
   
   geo.attributes.position.needsUpdate = true;

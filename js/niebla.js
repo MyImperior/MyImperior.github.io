@@ -11,7 +11,11 @@ canvasNiebla.style.left = '0';
 canvasNiebla.style.zIndex = '2';
 canvasNiebla.style.pointerEvents = 'none';
 
-const COLOR_NIEBLA = 'rgba(138, 154, 168, 0.95)';
+let alfaVelo = 0.95;
+
+export function setAlfaVelo(v) {
+  alfaVelo = v;
+}
 
 // ─── RAYOS ───────────────────────────────────────────────────────────────────
 // Posiciones en fracción de pantalla (x, y) y radio en fracción del ancho.
@@ -63,7 +67,7 @@ function dibujarNiebla() {
   ctx.clearRect(0, 0, w, h);
 
   // 1. Velo gris general
-  ctx.fillStyle = COLOR_NIEBLA;
+ ctx.fillStyle = `rgba(138, 154, 168, ${alfaVelo})`;
   ctx.fillRect(0, 0, w, h);
 
   // 2. Modo borrador: los claros
@@ -85,9 +89,11 @@ function dibujarNiebla() {
   ctx.restore();
 
   // 2b. Claro del cielo (franja superior)
-  const gradCielo = ctx.createLinearGradient(0, 0, 0, h * 0.2);
-  gradCielo.addColorStop(0, 'rgba(0,0,0,1)');
-  gradCielo.addColorStop(1, 'rgba(0,0,0,0)');
+const gradCielo = ctx.createLinearGradient(0, 0, 0, h * 0.2);
+  gradCielo.addColorStop(0,    'rgba(0,0,0,1)');
+  gradCielo.addColorStop(0.55, 'rgba(0,0,0,0.42)');
+  gradCielo.addColorStop(0.85, 'rgba(0,0,0,0.09)');
+  gradCielo.addColorStop(1,    'rgba(0,0,0,0)');
   ctx.fillStyle = gradCielo;
   ctx.fillRect(0, 0, w, h * 0.2);
 
