@@ -133,6 +133,10 @@ escena2.add(luzDir1);
 const luzDir2 = new THREE.DirectionalLight(0xffffff, 2.5);
 luzDir2.position.set(-5, 3, -5);
 escena2.add(luzDir2);
+// Luz del mástil: ilumina el propio barco desde arriba, cálida
+const luzMastil = new THREE.PointLight(0xffaa44, 8, 12, 1.2);
+luzMastil.position.set(0, 2.5, -9);
+escena2.add(luzMastil);
 
 let barco3D;
 const loaderBarco = new GLTFLoader();
@@ -179,12 +183,7 @@ const col = new Float32Array(numParticulas * 4);
 geo.setAttribute('color', new THREE.BufferAttribute(col, 4));
 
 // Punto de la luz del mástil (coordenadas de mundo) y parámetros del halo
-const LUZ_MASTIL = { x: 0, y: 1, z: -9 };
-const RADIO_CLARO = 7;        // radio del claro: dentro, las partículas se desvanecen
-const ANCHO_TRANSICION = 3;   // suavidad del borde del claro
-const ANCHO_ANILLO = 3;       // grosor del anillo de luz en la frontera
-const OPACIDAD_BASE = 0.25;
-const OPACIDAD_HALO = 0.55;
+const OPACIDAD_BASE = 0.14;
 const mat = new THREE.PointsMaterial({
   map: crearTextura(),
   size: 7,
@@ -225,31 +224,10 @@ function animar() {
       pos[i * 3 + 1] = Math.random() * 10 - 1.8;
       pos[i * 3 + 2] = -(30 + Math.random() * 5);
     }
-
-    // ── Claro atenuado + anillo de luz en su frontera ──
-    // Distancia 3D de la partícula al centro del barco/mástil:
-    const hx = pos[i * 3]     - LUZ_MASTIL.x;
-    const hy = pos[i * 3 + 1] - LUZ_MASTIL.y;
-    const hz = pos[i * 3 + 2] - LUZ_MASTIL.z;
-    const dist = Math.sqrt(hx * hx + hy * hy + hz * hz);
-
-    // Atenuación: dentro de RADIO_CLARO el alfa cae a casi nada (claro del barco).
-    // Transición suave entre RADIO_CLARO y el exterior.
-    let visibilidad = (dist - RADIO_CLARO) / ANCHO_TRANSICION;
-    if (visibilidad < 0.05) visibilidad = 0.05; // nunca invisible del todo
-    if (visibilidad > 1) visibilidad = 1;
-
-    // Anillo: máximo justo en la frontera del claro, cayendo hacia ambos lados.
-    const distAnillo = Math.abs(dist - RADIO_CLARO) / ANCHO_ANILLO;
-    let brillo = 1 - distAnillo;
-    if (brillo < 0) brillo = 0;
-    brillo = brillo * brillo;
-
-    col[i * 4]     = 0.55 + brillo * 0.45;
-    col[i * 4 + 1] = 0.60 + brillo * 0.07;
-    col[i * 4 + 2] = 0.65 - brillo * 0.38;
-    col[i * 4 + 3] = (OPACIDAD_BASE + brillo * (OPACIDAD_HALO - OPACIDAD_BASE)) * visibilidad;
-  
+    col[i * 4]     = 0.55;
+    col[i * 4 + 1] = 0.60;
+    col[i * 4 + 2] = 0.65;
+    col[i * 4 + 3] = OPACIDAD_BASE;
   }
   
   geo.attributes.position.needsUpdate = true;
