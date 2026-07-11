@@ -143,6 +143,11 @@ const loaderBarco = new GLTFLoader();
 
 loaderBarco.load('3D/barco3d.glb', (gltf) => {
   barco3D = gltf.scene;
+  barco3D.traverse((nodo) => {
+    if (nodo.isMesh && nodo.geometry) {
+      nodo.geometry.computeVertexNormals();
+    }
+  });
   barco3D.scale.set(2, 2, 2);
   barco3D.position.set(0, -1, -9);
   escena2.add(barco3D);
