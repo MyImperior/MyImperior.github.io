@@ -188,7 +188,7 @@ const col = new Float32Array(numParticulas * 4);
 geo.setAttribute('color', new THREE.BufferAttribute(col, 4));
 
 // Punto de la luz del mástil (coordenadas de mundo) y parámetros del halo
-const OPACIDAD_BASE = 0.14;
+const OPACIDAD_BASE = 0.25;
 const mat = new THREE.PointsMaterial({
   map: crearTextura(),
   size: 7,

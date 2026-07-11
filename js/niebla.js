@@ -11,7 +11,7 @@ canvasNiebla.style.left = '0';
 canvasNiebla.style.zIndex = '2';
 canvasNiebla.style.pointerEvents = 'none';
 
-const COLOR_NIEBLA = 'rgba(138, 154, 168, 0.8)';
+const COLOR_NIEBLA = 'rgba(138, 154, 168, 0.95)';
 
 // ─── RAYOS ───────────────────────────────────────────────────────────────────
 // Posiciones en fracción de pantalla (x, y) y radio en fracción del ancho.
