@@ -21,6 +21,10 @@ const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerH
 camara.position.set(0, 0.5, 2);
 camara.lookAt(0, 0.5, -6);
 
+export function setInclinacionCamara(v) {
+  camara.lookAt(0, 0.5 + v, -6);
+}
+
 // ─── ENVIRONMENT MAP (compartido entre las dos escenas) ──────────────────────
 // Esto es lo que hizo fallar el intento anterior: el env map se asignó solo a
 // una escena. Sin él, MeshStandardMaterial aparece completamente negro.

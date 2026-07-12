@@ -16,7 +16,11 @@ let alfaVelo = 0.95;
 export function setAlfaVelo(v) {
   alfaVelo = v;
 }
+let intensidadClaros = 1;
 
+export function setIntensidadClaros(v) {
+  intensidadClaros = v;
+}
 // ─── RAYOS ───────────────────────────────────────────────────────────────────
 // Posiciones en fracción de pantalla (x, y) y radio en fracción del ancho.
 // AJUSTA ESTOS VALORES para colocar cada rayo sobre su objetivo:
@@ -71,7 +75,8 @@ function dibujarNiebla() {
   ctx.fillRect(0, 0, w, h);
 
   // 2. Modo borrador: los claros
-  ctx.globalCompositeOperation = 'destination-out';
+ ctx.globalCompositeOperation = 'destination-out';
+  ctx.globalAlpha = intensidadClaros;
 
   // 2a. Claro del barco (elipse)
   const cx = w * 0.50, cy = h * 0.83;
@@ -125,12 +130,13 @@ const edad = ahora - f.nacimiento;
   });
 
   // 3. Volver a modo pintar: el resplandor de los fogonazos
-  ctx.globalCompositeOperation = 'source-over';
+ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
 
 for (const f of fogonazosActivos) {
     const edad = ahora - f.nacimiento;
     if (edad > DURACION_LUZ) continue;
-    const intensidad = 1 - (edad / DURACION_LUZ);
+    const intensidad = (1 - (edad / DURACION_LUZ)) * intensidadClaros;
     const fx = w * f.x, fy = h * f.y, fr = w * f.radio;
     const gradLuz = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
     gradLuz.addColorStop(0,    `rgba(220,235,255,${0.35 * intensidad})`);
