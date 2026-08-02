@@ -174,7 +174,7 @@ function crearTextura() {
   return new THREE.CanvasTexture(canvas);
 }
 
-const numParticulas = 1800;
+const numParticulas = 4500;
 const geo = new THREE.BufferGeometry();
 const pos = new Float32Array(numParticulas * 3);
 const vel = new Float32Array(numParticulas);

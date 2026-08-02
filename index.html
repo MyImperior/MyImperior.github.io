@@ -81,7 +81,7 @@ import { animar } from './js/transiciones.js';
   async function transicionACiencia() {
       transicionEnCurso = true;
       // FASE 1: el barco se pierde entre las partículas (saturación parcial)
-      await animar({ desde: 0.25, hasta: 0.8, duracion: 2800, alCambiar: setOpacidadParticulas });
+      await animar({ desde: 0.25, hasta: 0.55, duracion: 2800, alCambiar: setOpacidadParticulas });
       // FASE 2 en adelante: pendientes de construir
       transicionEnCurso = false; // temporal, para poder re-probar sin recargar
     }
