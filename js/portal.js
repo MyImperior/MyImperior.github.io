@@ -7,7 +7,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 // Lo haremos a mano cada frame para poder hacer dos pasadas (suelo → barco).
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0x000000, 0);
+renderer.setClearColor(0x5d6568, 1);
 renderer.autoClear = false;
 renderer.domElement.style.position = 'fixed';
 renderer.domElement.style.top = '0';

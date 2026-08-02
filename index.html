@@ -71,16 +71,34 @@
     <a href="secciones/memoria.html">Memoria</a>
   </nav>
 
-  <script>
+ <script type="module">
+import { animar } from './js/transiciones.js';
+    import { setOpacidadParticulas, setInclinacionCamara } from './js/portal.js';
+    import { setAlfaVelo, setIntensidadClaros } from './js/niebla.js';
+
+    let transicionEnCurso = false;
+
+  async function transicionACiencia() {
+      transicionEnCurso = true;
+      // FASE 1: el barco se pierde entre las partículas (saturación parcial)
+      await animar({ desde: 0.25, hasta: 0.8, duracion: 2800, alCambiar: setOpacidadParticulas });
+      // FASE 2 en adelante: pendientes de construir
+      transicionEnCurso = false; // temporal, para poder re-probar sin recargar
+    }
     document.addEventListener('click', (e) => {
-      const x = e.clientX;
-      const w = window.innerWidth;
+      if (transicionEnCurso) return;
+      if (e.target.closest('#marco-memoria')) return;
+      if (e.target.closest('nav')) return;
+
+      const x = e.clientX, y = e.clientY;
+      const w = window.innerWidth, h = window.innerHeight;
+
       if (x < w * 0.35) {
         window.location.href = 'secciones/cienciaficcion.html';
       } else if (x > w * 0.65) {
         window.location.href = 'secciones/arte.html';
-      } else {
-        window.location.href = 'secciones/ciencia.html';
+      } else if (y < h * 0.62) {
+        transicionACiencia();
       }
     });
 
