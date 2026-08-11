@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ciencia — TRAPPIST-1</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; height: 100vh; background-color: #000; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "../js/vendor/three/build/three.module.js",
+      "three/addons/": "../js/vendor/three/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    // ─── RENDERER ───────────────────────────────────────────────
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // ─── ESCENA Y CÁMARA ────────────────────────────────────────
+    const escena = new THREE.Scene();
+    const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    // Cámara elevada sobre el plano orbital → vista ladeada ~35°
+    camara.position.set(0, 15, 25);
+    camara.lookAt(0, 0, 0);
+
+    const cargador = new THREE.TextureLoader();
+
+    // ─── ESTRELLA (enana roja, esfera 3D con luz en su centro) ──
+    const texEstrella = cargador.load('../imagenes/trappist/er.png');
+    texEstrella.colorSpace = THREE.SRGBColorSpace;
+    const estrella = new THREE.Mesh(
+      new THREE.SphereGeometry(2, 64, 64),
+      // MeshBasic: la estrella emite luz, no la recibe → no necesita sombreado
+      new THREE.MeshBasicMaterial({ map: texEstrella })
+    );
+    escena.add(estrella);
+
+    // La luz que ilumina los planetas SALE del centro de la estrella.
+    // Por eso el anclaje por marea sale gratis: la cara iluminada
+    // siempre apunta a la estrella, porque la luz está en la estrella.
+    const luzEstrella = new THREE.PointLight(0xff6644, 3, 100, 0.5);
+    luzEstrella.position.set(0, 0, 0);
+    escena.add(luzEstrella);
+
+    // Un poco de luz ambiental para que la cara nocturna no sea negro absoluto
+    escena.add(new THREE.AmbientLight(0x221111, 1));
+
+    // ─── PLANETA DE PRUEBA (b, el más interior) ─────────────────
+    const texPlaneta = cargador.load('../imagenes/trappist/b.png');
+    texPlaneta.colorSpace = THREE.SRGBColorSpace;
+    const planeta = new THREE.Mesh(
+      new THREE.SphereGeometry(0.4, 48, 48),
+      new THREE.MeshStandardMaterial({ map: texPlaneta, roughness: 1, metalness: 0 })
+    );
+    escena.add(planeta);
+
+    const RADIO_ORBITA = 5;   // distancia a la estrella
+    let angulo = 0;
+
+    // ─── ÓRBITA VISIBLE (anillo tenue) ──────────────────────────
+    const puntosOrbita = [];
+    for (let i = 0; i <= 128; i++) {
+      const a = (i / 128) * Math.PI * 2;
+      puntosOrbita.push(new THREE.Vector3(Math.cos(a) * RADIO_ORBITA, 0, Math.sin(a) * RADIO_ORBITA));
+    }
+    const lineaOrbita = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(puntosOrbita),
+      new THREE.LineBasicMaterial({ color: 0x442222 })
+    );
+    escena.add(lineaOrbita);
+
+    // ─── BUCLE ──────────────────────────────────────────────────
+    function animar() {
+      requestAnimationFrame(animar);
+
+      // Traslación: el planeta recorre su órbita
+      angulo += 0.005;
+      planeta.position.set(
+        Math.cos(angulo) * RADIO_ORBITA,
+        0,
+        Math.sin(angulo) * RADIO_ORBITA
+      );
+
+      // ANCLAJE POR MAREA: el planeta mira siempre a la estrella.
+      // lookAt(0,0,0) reorienta la esfera hacia el centro en cada frame;
+      // como se traslada, su orientación cambia → misma cara hacia la estrella.
+      planeta.lookAt(0, 0, 0);
+
+      renderer.render(escena, camara);
+    }
+    animar();
+
+    // ─── RESIZE ─────────────────────────────────────────────────
+    window.addEventListener('resize', () => {
+      camara.aspect = window.innerWidth / window.innerHeight;
+      camara.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+
+</body>
+</html>
