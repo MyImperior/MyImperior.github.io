@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Prueba planeta habitado</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; height: 100vh; background-color: #000; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "../js/vendor/three/build/three.module.js",
+      "three/addons/": "../js/vendor/three/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const escena = new THREE.Scene();
+    const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    camara.position.set(0, 0, 5);
+
+    // ─── LUZ: hace de estrella. Ilumina un lado → el otro es "noche". ───
+    const luzEstrella = new THREE.DirectionalLight(0xfff2e0, 3);
+    luzEstrella.position.set(5, 2, 3);
+    escena.add(luzEstrella);
+    escena.add(new THREE.AmbientLight(0x333344, 0.6)); // noche no totalmente negra
+
+    // ─── EL PLANETA (esfera con la textura del archipiélago) ───
+    const tex = new THREE.TextureLoader().load('../imagenes/sistema/islas.png');
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const planeta = new THREE.Mesh(
+      new THREE.SphereGeometry(1.5, 96, 96),
+      new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 })
+    );
+    escena.add(planeta);
+
+    // ─── TECNOMARCADORES: luces de ciudad como puntos sobre la esfera ───
+    // Nacen en la superficie del planeta (mismo radio) y son hijos del planeta,
+    // así giran CON él. Un shader las hace brillar solo en la cara nocturna.
+    const NUM_LUCES = 400;
+    const posLuces = new Float32Array(NUM_LUCES * 3);
+    const radio = 1.505; // pelín por fuera de la superficie
+    for (let i = 0; i < NUM_LUCES; i++) {
+      // Distribución sobre esfera (método del ángulo aleatorio)
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      posLuces[i*3]   = radio * Math.sin(phi) * Math.cos(theta);
+      posLuces[i*3+1] = radio * Math.sin(phi) * Math.sin(theta);
+      posLuces[i*3+2] = radio * Math.cos(phi);
+    }
+    const geoLuces = new THREE.BufferGeometry();
+    geoLuces.setAttribute('position', new THREE.BufferAttribute(posLuces, 3));
+
+    // Material de las luces: shader que apaga las de la cara iluminada
+    const matLuces = new THREE.ShaderMaterial({
+      uniforms: {
+        dirLuz: { value: luzEstrella.position.clone().normalize() },
+        tiempo: { value: 0 }
+      },
+      vertexShader: `
+        uniform vec3 dirLuz;
+        varying float visibilidad;
+        void main() {
+          // normal del punto = su posición normalizada (esfera en el origen)
+          vec3 normalMundo = normalize((modelMatrix * vec4(position, 0.0)).xyz);
+          float cara = dot(normalMundo, dirLuz); // >0 día, <0 noche
+          visibilidad = smoothstep(0.1, -0.2, cara); // solo brillan de noche
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = 2.5;
+        }
+      `,
+      fragmentShader: `
+        varying float visibilidad;
+        void main() {
+          if (visibilidad < 0.01) discard;
+          // punto redondo suave
+          float d = length(gl_PointCoord - vec2(0.5));
+          if (d > 0.5) discard;
+          gl_FragColor = vec4(1.0, 0.85, 0.5, visibilidad); // ámbar cálido
+        }
+      `,
+      transparent: true,
+      depthWrite: false
+    });
+
+    const luces = new THREE.Points(geoLuces, matLuces);
+    planeta.add(luces); // hijas del planeta → giran con él
+
+    // ─── BUCLE ───
+    function animar() {
+      requestAnimationFrame(animar);
+      planeta.rotation.y += 0.002; // rotación libre (no anclaje por marea)
+      // el shader necesita la dir de la luz en espacio del planeta, que rota:
+      matLuces.uniforms.dirLuz.value = luzEstrella.position.clone().normalize();
+      renderer.render(escena, camara);
+    }
+    animar();
+
+    window.addEventListener('resize', () => {
+      camara.aspect = window.innerWidth / window.innerHeight;
+      camara.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
