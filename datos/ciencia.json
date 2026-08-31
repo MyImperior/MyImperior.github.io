@@ -1,0 +1,282 @@
+[
+    {
+        "id":  1,
+        "titulo":  "Mira al cielo... está lleno de estrellas",
+        "autor":  "Agrupación Astronómica de Madrid (AAM)",
+        "fecha":  2004,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "AAM",
+        "color":  null
+    },
+    {
+        "id":  2,
+        "titulo":  "Asimov\u0027s New Guide to Science",
+        "autor":  "Asimov, Isaac",
+        "fecha":  1984,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "Penguin",
+        "color":  null
+    },
+    {
+        "id":  3,
+        "titulo":  "El Universo",
+        "autor":  "Asimov, Isaac",
+        "fecha":  1966,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "CT (Ciencia y Tecnología), nº 2004",
+        "color":  null
+    },
+    {
+        "id":  4,
+        "titulo":  "A Most Incomprehensible Thing",
+        "autor":  "Collier, Peter",
+        "fecha":  2012,
+        "leido":  true,
+        "leyendo":  false,
+        "coleccion":  "Incomprehensible Books",
+        "color":  null
+    },
+    {
+        "id":  5,
+        "titulo":  "El significado de la relatividad",
+        "autor":  "Einstein, Albert",
+        "fecha":  1922,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "Ciencias y Humanidades",
+        "color":  null
+    },
+    {
+        "id":  6,
+        "titulo":  "Six Easy Pieces",
+        "autor":  "Feynman, Richard P.",
+        "fecha":  1994,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  null,
+        "color":  null
+    },
+    {
+        "id":  7,
+        "titulo":  "Iniciación a la astronomía",
+        "autor":  "Fuentes Yagüe, José Luis",
+        "fecha":  1999,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "Ediciones Mundi-Prensa",
+        "color":  null
+    },
+    {
+        "id":  8,
+        "titulo":  "Biografía de la física",
+        "autor":  "Gamow, George",
+        "fecha":  1961,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "CT (Ciencia y Tecnología), nº 2006",
+        "color":  null
+    },
+    {
+        "id":  9,
+        "titulo":  "The Elegant Universe",
+        "autor":  "Greene, Brian",
+        "fecha":  1999,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "Vintage",
+        "color":  null
+    },
+    {
+        "id":  10,
+        "titulo":  "Curso de astronomía práctica",
+        "autor":  "Grupo Astrófilo Lariano",
+        "fecha":  1993,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "De Vecchi / DVE",
+        "color":  null
+    },
+    {
+        "id":  11,
+        "titulo":  "El universo en una cáscara de nuez",
+        "autor":  "Hawking, Stephen",
+        "fecha":  2001,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  null,
+        "color":  null
+    },
+    {
+        "id":  12,
+        "titulo":  "La naturaleza del espacio y el tiempo",
+        "autor":  "Hawking, Stephen / Penrose, Roger",
+        "fecha":  1996,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  null,
+        "color":  null
+    },
+    {
+        "id":  13,
+        "titulo":  "Historia del tiempo",
+        "autor":  "Hawking, Stephen W.",
+        "fecha":  1988,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "CT (Ciencia y Tecnología), nº 2001",
+        "color":  null
+    },
+    {
+        "id":  14,
+        "titulo":  "Partículas elementales",
+        "autor":  "Hooft, Gerard",
+        "fecha":  1996,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "Booket, nº 25 (Crítica)",
+        "color":  null
+    },
+    {
+        "id":  15,
+        "titulo":  "Un universo de la nada",
+        "autor":  "Krauss, Lawrence M.",
+        "fecha":  2012,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  null,
+        "color":  null
+    },
+    {
+        "id":  16,
+        "titulo":  "Quantum Field Theory for the Gifted Amateur",
+        "autor":  "Lancaster, Tom / Blundell, Stephen J.",
+        "fecha":  2014,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "Oxford University Press",
+        "color":  null
+    },
+    {
+        "id":  17,
+        "titulo":  "Astronomía",
+        "autor":  "Lippincott, Kristen",
+        "fecha":  1994,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "Biblioteca Visual (Altea / DK Eyewitness)",
+        "color":  null
+    },
+    {
+        "id":  18,
+        "titulo":  "Superstrings and the Search for the Theory of Everything",
+        "autor":  "Peat, F. David",
+        "fecha":  1988,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "Abacus",
+        "color":  null
+    },
+    {
+        "id":  19,
+        "titulo":  "Ciclos del tiempo",
+        "autor":  "Penrose, Roger",
+        "fecha":  2010,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "Debate",
+        "color":  null
+    },
+    {
+        "id":  20,
+        "titulo":  "The Road to Reality",
+        "autor":  "Penrose, Roger",
+        "fecha":  2004,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "Vintage",
+        "color":  null
+    },
+    {
+        "id":  21,
+        "titulo":  "Guía para observar las estrellas. El cielo a simple vista",
+        "autor":  "Pérsico Barberán, F.",
+        "fecha":  2005,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "Libsa",
+        "color":  null
+    },
+    {
+        "id":  22,
+        "titulo":  "ABC de la relatividad",
+        "autor":  "Russell, Bertrand",
+        "fecha":  1925,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "Orbis, nº 5",
+        "color":  null
+    },
+    {
+        "id":  23,
+        "titulo":  "A First Course in General Relativity (2ª ed.)",
+        "autor":  "Schutz, Bernard",
+        "fecha":  1985,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "Cambridge University Press",
+        "color":  null
+    },
+    {
+        "id":  24,
+        "titulo":  "Historia del tiempo. Una guía del lector",
+        "autor":  "Stone, Gene (ed.) / Hawking, Stephen",
+        "fecha":  1992,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "Plaza \u0026 Janés",
+        "color":  null
+    },
+    {
+        "id":  25,
+        "titulo":  "General Relativity",
+        "autor":  "Susskind, Leonard / Cabannes, André",
+        "fecha":  2023,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "The Theoretical Minimum, vol. 4",
+        "color":  null
+    },
+    {
+        "id":  26,
+        "titulo":  "Special Relativity and Classical Field Theory",
+        "autor":  "Susskind, Leonard / Friedman, Art",
+        "fecha":  2017,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "The Theoretical Minimum, vol. 3",
+        "color":  null
+    },
+    {
+        "id":  27,
+        "titulo":  "Quantum Mechanics",
+        "autor":  "Susskind, Leonard / Friedman, Art",
+        "fecha":  2014,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "The Theoretical Minimum, vol. 2",
+        "color":  null
+    },
+    {
+        "id":  28,
+        "titulo":  "Classical Mechanics (The Theoretical Minimum)",
+        "autor":  "Susskind, Leonard / Hrabovsky, George",
+        "fecha":  2013,
+        "leido":  false,
+        "leyendo":  false,
+        "coleccion":  "The Theoretical Minimum, vol. 1",
+        "color":  null
+    }
+]
