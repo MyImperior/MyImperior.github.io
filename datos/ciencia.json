@@ -7,7 +7,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  "AAM",
-        "color":  null
+        "color":  "A"
     },
     {
         "id":  2,
@@ -17,7 +17,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  "Penguin",
-        "color":  null
+        "color":  "A"
     },
     {
         "id":  3,
@@ -27,7 +27,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  "CT (Ciencia y Tecnología), nº 2004",
-        "color":  null
+        "color":  "A"
     },
     {
         "id":  4,
@@ -37,7 +37,7 @@
         "leido":  true,
         "leyendo":  false,
         "coleccion":  "Incomprehensible Books",
-        "color":  null
+        "color":  "P"
     },
     {
         "id":  5,
@@ -47,7 +47,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  "Ciencias y Humanidades",
-        "color":  null
+        "color":  "P"
     },
     {
         "id":  6,
@@ -57,7 +57,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  null,
-        "color":  null
+        "color":  "Q"
     },
     {
         "id":  7,
@@ -67,7 +67,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  "Ediciones Mundi-Prensa",
-        "color":  null
+        "color":  "A"
     },
     {
         "id":  8,
@@ -77,7 +77,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  "CT (Ciencia y Tecnología), nº 2006",
-        "color":  null
+        "color":  "A"
     },
     {
         "id":  9,
@@ -87,7 +87,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  "Vintage",
-        "color":  null
+        "color":  "G"
     },
     {
         "id":  10,
@@ -97,7 +97,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  "De Vecchi / DVE",
-        "color":  null
+        "color":  "A"
     },
     {
         "id":  11,
@@ -107,7 +107,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  null,
-        "color":  null
+        "color":  "G"
     },
     {
         "id":  12,
@@ -117,7 +117,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  null,
-        "color":  null
+        "color":  "Q"
     },
     {
         "id":  13,
@@ -127,7 +127,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  "CT (Ciencia y Tecnología), nº 2001",
-        "color":  null
+        "color":  "A"
     },
     {
         "id":  14,
@@ -167,7 +167,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  "Biblioteca Visual (Altea / DK Eyewitness)",
-        "color":  null
+        "color":  "A"
     },
     {
         "id":  18,
@@ -207,7 +207,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  "Libsa",
-        "color":  null
+        "color":  "A"
     },
     {
         "id":  22,
@@ -217,7 +217,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  "Orbis, nº 5",
-        "color":  null
+        "color":  "P"
     },
     {
         "id":  23,
@@ -227,7 +227,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  "Cambridge University Press",
-        "color":  null
+        "color":  "P"
     },
     {
         "id":  24,
@@ -247,7 +247,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  "The Theoretical Minimum, vol. 4",
-        "color":  null
+        "color":  "P"
     },
     {
         "id":  26,
@@ -257,7 +257,7 @@
         "leido":  false,
         "leyendo":  false,
         "coleccion":  "The Theoretical Minimum, vol. 3",
-        "color":  null
+        "color":  "P"
     },
     {
         "id":  27,
