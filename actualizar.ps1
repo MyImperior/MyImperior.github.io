@@ -267,10 +267,20 @@ if ($respuesta -eq "s") {
     # (y no $fecha) para no chocar con la variable $fecha del bucle.
     $sello = Get-Date -Format "yyyy-MM-dd HH:mm"
     git add $generados $archivoExcel
-    git commit -m "Biblioteca actualizada: $totalGlobal libros ($sello)"
-    git push
-    Write-Host ""
-    Write-Host "Publicado. Tarda 1-2 minutos en verse en la web." -ForegroundColor Green
+        git commit -m "Biblioteca actualizada: $totalGlobal libros ($sello)"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host ""
+        Write-Host "Nada que confirmar: los JSON no han cambiado desde el ultimo commit." -ForegroundColor DarkGray
+    } else {
+        git push
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host ""
+            Write-Host "EL PUSH HA FALLADO. El commit esta hecho en local pero NO en GitHub." -ForegroundColor Red
+        } else {
+            Write-Host ""
+            Write-Host "Publicado. Tarda 1-2 minutos en verse en la web." -ForegroundColor Green
+        }
+    }
 } else {
     Write-Host "JSON generados pero NO publicados." -ForegroundColor DarkGray
 }
