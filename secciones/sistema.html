@@ -43,14 +43,15 @@
 
     const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 6000);
 
-    // VISTA GENERAL del sistema. Acercada: el encuadre llega hasta la zona
-    // de la 5ª-6ª órbita (planetas interiores grandes y pinchables).
+    // VISTA GENERAL del sistema. Cámara a distancia ~34 (entre la 5ª y la 6ª
+    // órbita). Los planetas exteriores entran y salen de plano al orbitar.
     // Ajusta estos tres números por ojo para alejar/acercar.
-    const VISTA_GENERAL   = new THREE.Vector3(0, 35, 72);
+    const VISTA_GENERAL   = new THREE.Vector3(0, 16, 31);
     const MIRADA_GENERAL  = new THREE.Vector3(0, 0, 0);
     camara.position.copy(VISTA_GENERAL);
     const miraActual = MIRADA_GENERAL.clone(); // objetivo de lookAt que interpolamos
     camara.lookAt(miraActual);
+    escena.add(camara); // necesario para que las estrellas (hijas de la cámara) se rendericen
 
     const cargador = new THREE.TextureLoader();
 
@@ -71,7 +72,8 @@
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
       const mat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false });
-      escena.add(new THREE.Points(geo, mat));
+      const estrellas = new THREE.Points(geo, mat);
+      camara.add(estrellas); // hijas de la cámara → cielo fijo en pantalla, no barre al girar/volar
     })();
 
     // Fondo PLANO encajado a la pantalla (tipo "cover"): nítido y bien
@@ -286,6 +288,16 @@
     });
 
     // ════════════════════════════════════════════════════════════
+    //  ZOOM con la rueda del ratón (funciona en vista general y enfocado)
+    // ════════════════════════════════════════════════════════════
+    let factorZoom = 1;
+    window.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      factorZoom *= (e.deltaY > 0) ? 1.1 : 0.9;   // rueda arriba = acercar
+      factorZoom = THREE.MathUtils.clamp(factorZoom, 0.25, 4);
+    }, { passive: false });
+
+    // ════════════════════════════════════════════════════════════
     //  BUCLE
     // ════════════════════════════════════════════════════════════
     const objetivoPos = new THREE.Vector3();
@@ -324,11 +336,11 @@
         const r = planetaEnfocado.r;
         fuera.copy(pos).normalize();                        // radial: del sol hacia el planeta
         objetivoPos.copy(pos)
-          .addScaledVector(fuera, r * 5 + 3)                // nos apartamos hacia fuera
-          .addScaledVector(ARRIBA, r * 6 + 4);              // y por encima (vista cenital)
+          .addScaledVector(fuera, (r * 5 + 3) * factorZoom) // nos apartamos hacia fuera (con zoom)
+          .addScaledVector(ARRIBA, (r * 6 + 4) * factorZoom); // y por encima (vista cenital)
         objetivoMira.copy(pos);
       } else {
-        objetivoPos.copy(VISTA_GENERAL);
+        objetivoPos.copy(VISTA_GENERAL).multiplyScalar(factorZoom); // vista general + zoom
         objetivoMira.copy(MIRADA_GENERAL);
       }
       camara.position.lerp(objetivoPos, 0.05);
