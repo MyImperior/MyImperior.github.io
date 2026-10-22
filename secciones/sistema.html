@@ -29,6 +29,7 @@
 
   <script type="module">
     import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
     // ════════════════════════════════════════════════════════════
     //  RENDERER / ESCENA / CÁMARA
@@ -43,15 +44,22 @@
 
     const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 6000);
 
-    // VISTA GENERAL del sistema. Cámara a distancia ~34 (entre la 5ª y la 6ª
-    // órbita). Los planetas exteriores entran y salen de plano al orbitar.
-    // Ajusta estos tres números por ojo para alejar/acercar.
-    const VISTA_GENERAL   = new THREE.Vector3(0, 16, 31);
+    // VISTA GENERAL del sistema: alejada para que la órbita exterior (~58)
+    // pase justo por delante. Ajusta estos tres números por ojo.
+    const VISTA_GENERAL   = new THREE.Vector3(0, 28, 62);
     const MIRADA_GENERAL  = new THREE.Vector3(0, 0, 0);
     camara.position.copy(VISTA_GENERAL);
-    const miraActual = MIRADA_GENERAL.clone(); // objetivo de lookAt que interpolamos
-    camara.lookAt(miraActual);
+    camara.lookAt(MIRADA_GENERAL);
     escena.add(camara); // necesario para que las estrellas (hijas de la cámara) se rendericen
+
+    // Controles de cámara libres: arrastrar = girar, rueda = zoom, botón derecho = desplazar
+    const controls = new OrbitControls(camara, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.minDistance = 2;
+    controls.maxDistance = 400;
+    controls.target.copy(MIRADA_GENERAL);
+    controls.update();
 
     const cargador = new THREE.TextureLoader();
 
@@ -131,8 +139,8 @@
     const matSol = new THREE.MeshBasicMaterial({ color: 0xffb066 });
     cargador.load(
       '../imagenes/sistema/sol.png',
-      // color por debajo de blanco → atenúa la textura (menos intenso, más de estrella). Ajustable.
-      (t) => { t.colorSpace = THREE.SRGBColorSpace; matSol.map = t; matSol.color.set(0xb89a72); matSol.needsUpdate = true; },
+      // color muy por debajo de blanco → atenúa la textura al ~20% de brillo. Ajustable.
+      (t) => { t.colorSpace = THREE.SRGBColorSpace; matSol.map = t; matSol.color.set(0x332a1c); matSol.needsUpdate = true; },
       undefined,
       () => {}
     );
@@ -140,7 +148,7 @@
     escena.add(sol);
 
     const haloSol = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: TEX_GLOW, color: 0xffcc88, opacity: 0.55, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+      map: TEX_GLOW, color: 0xffcc88, opacity: 0.3, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
     }));
     haloSol.scale.setScalar(RADIO_SOL * 4.5);
     escena.add(haloSol);
@@ -272,38 +280,36 @@
     // ════════════════════════════════════════════════════════════
     const ray = new THREE.Raycaster();
     const raton = new THREE.Vector2();
-    let planetaEnfocado = null;
+    let enfocado = null;   // planeta enfocado (null = vista general)
+    let volando = false;   // true mientras la cámara viaja a su destino
+    const planetaPrev = new THREE.Vector3();
+
+    // Distinguir un clic real de un arrastre de los controles de cámara
+    let abajoX = 0, abajoY = 0;
+    renderer.domElement.addEventListener('pointerdown', (e) => { abajoX = e.clientX; abajoY = e.clientY; });
 
     window.addEventListener('click', (e) => {
+      if (Math.hypot(e.clientX - abajoX, e.clientY - abajoY) > 6) return; // fue arrastre, no clic
       raton.x = (e.clientX / window.innerWidth) * 2 - 1;
       raton.y = -(e.clientY / window.innerHeight) * 2 + 1;
       ray.setFromCamera(raton, camara);
-      const dianas = planetas.map(p => p.mesh);
-      const hit = ray.intersectObjects(dianas, false);
+      const hit = ray.intersectObjects(planetas.map(p => p.mesh), false);
       if (hit.length) {
-        planetaEnfocado = planetas.find(p => p.mesh === hit[0].object);
-      } else {
-        planetaEnfocado = null;
+        const p = planetas.find(pp => pp.mesh === hit[0].object);
+        if (p !== enfocado) { enfocado = p; volando = true; planetaPrev.copy(p.grupo.position); }
+      } else if (enfocado) {
+        enfocado = null; volando = true; // volver a la vista general
       }
     });
 
     // ════════════════════════════════════════════════════════════
-    //  ZOOM con la rueda del ratón (funciona en vista general y enfocado)
-    // ════════════════════════════════════════════════════════════
-    let factorZoom = 1;
-    window.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      factorZoom *= (e.deltaY > 0) ? 1.1 : 0.9;   // rueda arriba = acercar
-      factorZoom = THREE.MathUtils.clamp(factorZoom, 0.25, 4);
-    }, { passive: false });
-
-    // ════════════════════════════════════════════════════════════
     //  BUCLE
     // ════════════════════════════════════════════════════════════
-    const objetivoPos = new THREE.Vector3();
-    const objetivoMira = new THREE.Vector3();
-    const fuera = new THREE.Vector3();
-    const ARRIBA = new THREE.Vector3(0, 1, 0);
+    const fuera    = new THREE.Vector3();
+    const lado     = new THREE.Vector3();
+    const destino  = new THREE.Vector3();
+    const destMira = new THREE.Vector3();
+    const ARRIBA   = new THREE.Vector3(0, 1, 0);
 
     function animar() {
       requestAnimationFrame(animar);
@@ -329,24 +335,45 @@
         }
       });
 
-      // Cámara: al planeta enfocado (por FUERA de la órbita y ELEVADA,
-      // así el sol nunca se interpone entre cámara y planeta) o a la vista general.
-      if (planetaEnfocado) {
-        const pos = planetaEnfocado.grupo.position;
-        const r = planetaEnfocado.r;
-        fuera.copy(pos).normalize();                        // radial: del sol hacia el planeta
-        objetivoPos.copy(pos)
-          .addScaledVector(fuera, (r * 5 + 3) * factorZoom) // nos apartamos hacia fuera (con zoom)
-          .addScaledVector(ARRIBA, (r * 6 + 4) * factorZoom); // y por encima (vista cenital)
-        objetivoMira.copy(pos);
+      // ─── Cámara ───
+      if (enfocado) {
+        const pos = enfocado.grupo.position;
+        const r = enfocado.r;
+        if (volando) {
+          // Destino: a un lado del planeta, algo por fuera y elevado. Se mira
+          // hacia un punto entre el planeta y el sol → la vista va "hacia el
+          // sol" sin que el sol quede justo detrás del planeta. (constantes
+          // ajustables por ojo)
+          fuera.copy(pos).normalize();                  // sol → planeta
+          lado.crossVectors(ARRIBA, fuera).normalize(); // tangencial a la órbita
+          destino.copy(pos)
+            .addScaledVector(fuera, r * 3 + 6)
+            .addScaledVector(lado,  r * 8 + 11)
+            .addScaledVector(ARRIBA, r * 4 + 5);
+          destMira.copy(pos).multiplyScalar(0.65);      // punto entre planeta y sol
+          camara.position.lerp(destino, 0.06);
+          controls.target.lerp(destMira, 0.06);
+          controls.enabled = false;
+          if (camara.position.distanceTo(destino) < 0.4) volando = false;
+        } else {
+          // Seguimiento: cámara y objetivo acompañan al planeta en su órbita,
+          // conservando el ángulo que el usuario haya elegido con el ratón.
+          destino.copy(pos).sub(planetaPrev);           // desplazamiento del planeta
+          camara.position.add(destino);
+          controls.target.add(destino);
+          controls.enabled = true;                      // órbita/zoom libres alrededor del planeta
+        }
+        planetaPrev.copy(pos);
+      } else if (volando) {
+        camara.position.lerp(VISTA_GENERAL, 0.06);
+        controls.target.lerp(MIRADA_GENERAL, 0.06);
+        controls.enabled = false;
+        if (camara.position.distanceTo(VISTA_GENERAL) < 0.4) volando = false;
       } else {
-        objetivoPos.copy(VISTA_GENERAL).multiplyScalar(factorZoom); // vista general + zoom
-        objetivoMira.copy(MIRADA_GENERAL);
+        controls.enabled = true;                        // vista general libre
       }
-      camara.position.lerp(objetivoPos, 0.05);
-      miraActual.lerp(objetivoMira, 0.05);
-      camara.lookAt(miraActual);
 
+      controls.update();
       renderer.render(escena, camara);
     }
     animar();
