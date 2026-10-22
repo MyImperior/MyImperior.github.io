@@ -72,9 +72,30 @@
       escena.add(new THREE.Points(geo, mat));
     })();
 
+    // Fondo PLANO encajado a la pantalla (tipo "cover"): nítido y bien
+    // compuesto, sin envolver 360° (que repartía la imagen y la difuminaba).
+    let texFondo = null;
+    function encajarFondo() {
+      if (!texFondo || !texFondo.image) return;
+      const aImg = texFondo.image.width / texFondo.image.height;
+      const aPant = window.innerWidth / window.innerHeight;
+      if (aPant > aImg) {                 // pantalla más ancha → ajusto ancho, recorto alto
+        texFondo.repeat.set(1, aImg / aPant);
+        texFondo.offset.set(0, (1 - aImg / aPant) / 2);
+      } else {                            // pantalla más alta → ajusto alto, recorto ancho
+        texFondo.repeat.set(aPant / aImg, 1);
+        texFondo.offset.set((1 - aPant / aImg) / 2, 0);
+      }
+    }
     cargador.load(
-      '../imagenes/sistema/fondo-espacio.jpg',
-      (t) => { t.colorSpace = THREE.SRGBColorSpace; t.mapping = THREE.EquirectangularReflectionMapping; escena.background = t; },
+      '../imagenes/sistema/fondo-espacio.png',
+      (t) => {
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        texFondo = t;
+        escena.background = t;
+        encajarFondo();
+      },
       undefined,
       () => { /* sin imagen aún: se queda el color + estrellas procedurales */ }
     );
@@ -205,11 +226,7 @@
       );
       grupo.add(mesh);
 
-      // Punto/halo de color: visible de lejos, se desvanece al acercarnos
-      const punto = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: TEX_GLOW, color: m.color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
-      }));
-      grupo.add(punto);
+      // (sin halo: los planetas se ven como discos reales, a su tamaño)
 
       // Luces nocturnas pegadas a la superficie (hijas del mesh → rotan con él)
       let luces = null;
@@ -235,7 +252,7 @@
       escena.add(orbita);
 
       planetas.push({
-        grupo, mesh, punto, luces,
+        grupo, mesh, luces,
         dist: m.dist,
         incl: inclRad,
         angulo: Math.random() * Math.PI * 2,
@@ -256,11 +273,10 @@
       raton.x = (e.clientX / window.innerWidth) * 2 - 1;
       raton.y = -(e.clientY / window.innerHeight) * 2 + 1;
       ray.setFromCamera(raton, camara);
-      const dianas = [];
-      planetas.forEach(p => { dianas.push(p.mesh, p.punto); });
+      const dianas = planetas.map(p => p.mesh);
       const hit = ray.intersectObjects(dianas, false);
       if (hit.length) {
-        planetaEnfocado = planetas.find(p => p.mesh === hit[0].object || p.punto === hit[0].object);
+        planetaEnfocado = planetas.find(p => p.mesh === hit[0].object);
       } else {
         planetaEnfocado = null;
       }
@@ -291,10 +307,6 @@
         } else {
           p.mesh.rotation.y += 0.01;  // rota libre
         }
-
-        const d = camara.position.distanceTo(p.grupo.position);
-        p.punto.scale.setScalar(THREE.MathUtils.clamp(d * 0.03, 0.5, 9));
-        p.punto.material.opacity = THREE.MathUtils.clamp((d - 4) / 8, 0, 1);
 
         if (p.luces) {
           // dirección del planeta HACIA la estrella (en el origen)
@@ -331,6 +343,7 @@
       camara.aspect = window.innerWidth / window.innerHeight;
       camara.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      encajarFondo();
     });
   </script>
 </body>
