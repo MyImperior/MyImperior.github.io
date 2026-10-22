@@ -43,8 +43,10 @@
 
     const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 6000);
 
-    // VISTA GENERAL del sistema (alejada para abarcar la órbita exterior ~58)
-    const VISTA_GENERAL   = new THREE.Vector3(0, 58, 115);
+    // VISTA GENERAL del sistema. Acercada: el encuadre llega hasta la zona
+    // de la 5ª-6ª órbita (planetas interiores grandes y pinchables).
+    // Ajusta estos tres números por ojo para alejar/acercar.
+    const VISTA_GENERAL   = new THREE.Vector3(0, 35, 72);
     const MIRADA_GENERAL  = new THREE.Vector3(0, 0, 0);
     camara.position.copy(VISTA_GENERAL);
     const miraActual = MIRADA_GENERAL.clone(); // objetivo de lookAt que interpolamos
@@ -127,7 +129,8 @@
     const matSol = new THREE.MeshBasicMaterial({ color: 0xffb066 });
     cargador.load(
       '../imagenes/sistema/sol.png',
-      (t) => { t.colorSpace = THREE.SRGBColorSpace; matSol.map = t; matSol.color.set(0xffffff); matSol.needsUpdate = true; },
+      // color por debajo de blanco → atenúa la textura (menos intenso, más de estrella). Ajustable.
+      (t) => { t.colorSpace = THREE.SRGBColorSpace; matSol.map = t; matSol.color.set(0xb89a72); matSol.needsUpdate = true; },
       undefined,
       () => {}
     );
@@ -135,7 +138,7 @@
     escena.add(sol);
 
     const haloSol = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: TEX_GLOW, color: 0xffcc88, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+      map: TEX_GLOW, color: 0xffcc88, opacity: 0.55, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
     }));
     haloSol.scale.setScalar(RADIO_SOL * 4.5);
     escena.add(haloSol);
@@ -256,7 +259,7 @@
         dist: m.dist,
         incl: inclRad,
         angulo: Math.random() * Math.PI * 2,
-        velocidad: 0.02 / Math.sqrt(m.dist),
+        velocidad: 0.005 / Math.sqrt(m.dist), // 25% de la velocidad original
         anclado: m.anclado,
         r: m.r
       });
