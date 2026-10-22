@@ -41,10 +41,10 @@
     const escena = new THREE.Scene();
     escena.background = new THREE.Color(0x05060a); // fondo por defecto hasta que llegue la nebulosa
 
-    const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 4000);
+    const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 6000);
 
-    // Dos puntos de referencia de cámara: la VISTA GENERAL del sistema.
-    const VISTA_GENERAL   = new THREE.Vector3(0, 30, 62);
+    // VISTA GENERAL del sistema (alejada para abarcar la órbita exterior ~58)
+    const VISTA_GENERAL   = new THREE.Vector3(0, 58, 115);
     const MIRADA_GENERAL  = new THREE.Vector3(0, 0, 0);
     camara.position.copy(VISTA_GENERAL);
     const miraActual = MIRADA_GENERAL.clone(); // objetivo de lookAt que interpolamos
@@ -54,18 +54,14 @@
 
     // ════════════════════════════════════════════════════════════
     //  FONDO: campo de estrellas procedural + nebulosa opcional
-    //  - Las estrellas existen SIEMPRE (aunque no haya imagen).
-    //  - Si existe imagenes/sistema/fondo-espacio.jpg (equirectangular
-    //    2:1) se usa como fondo envolvente; si no, queda el color plano.
     // ════════════════════════════════════════════════════════════
     (function campoEstrellas() {
       const N = 2500;
       const pos = new Float32Array(N * 3);
       for (let i = 0; i < N; i++) {
-        // puntos repartidos en la superficie de una esfera lejana
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(2 * Math.random() - 1);
-        const R = 1500;
+        const R = 2500;
         pos[i*3]   = R * Math.sin(phi) * Math.cos(theta);
         pos[i*3+1] = R * Math.sin(phi) * Math.sin(theta);
         pos[i*3+2] = R * Math.cos(phi);
@@ -84,8 +80,8 @@
     );
 
     // ════════════════════════════════════════════════════════════
-    //  TEXTURA "GLOW" (halo radial) generada en canvas, para que cada
-    //  planeta se lea como un PUNTO de color desde lejos.
+    //  TEXTURA "GLOW" (halo radial) para que cada planeta se lea
+    //  como un PUNTO de color desde lejos.
     // ════════════════════════════════════════════════════════════
     function texturaGlow() {
       const c = document.createElement('canvas');
@@ -102,11 +98,11 @@
     const TEX_GLOW = texturaGlow();
 
     // ════════════════════════════════════════════════════════════
-    //  ESTRELLA K (naranja). Lista para textura: si existe
-    //  imagenes/sistema/sol.png se usa; si no, color plano naranja.
-    //  La luz SALE del centro → la cara iluminada de cada planeta
-    //  apunta siempre a la estrella (anclaje por marea sale gratis).
+    //  ESTRELLA K (naranja). Lista para textura (imagenes/sistema/sol.png).
+    //  Ahora MUCHO mayor que los planetas (una estrella empequeñece a
+    //  cualquier mundo). La luz sale de su centro.
     // ════════════════════════════════════════════════════════════
+    const RADIO_SOL = 6.0;
     const matSol = new THREE.MeshBasicMaterial({ color: 0xffb066 });
     cargador.load(
       '../imagenes/sistema/sol.png',
@@ -114,30 +110,27 @@
       undefined,
       () => {}
     );
-    const sol = new THREE.Mesh(new THREE.SphereGeometry(3.0, 64, 64), matSol);
+    const sol = new THREE.Mesh(new THREE.SphereGeometry(RADIO_SOL, 64, 64), matSol);
     escena.add(sol);
 
-    // halo del sol (sprite aditivo)
     const haloSol = new THREE.Sprite(new THREE.SpriteMaterial({
       map: TEX_GLOW, color: 0xffcc88, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
     }));
-    haloSol.scale.setScalar(16);
+    haloSol.scale.setScalar(RADIO_SOL * 4.5);
     escena.add(haloSol);
 
-    const luzSol = new THREE.PointLight(0xffd9a0, 4, 2000, 0.08);
+    const luzSol = new THREE.PointLight(0xffd9a0, 4, 3000, 0.08);
     escena.add(luzSol);
-    escena.add(new THREE.AmbientLight(0x223044, 0.45)); // la cara nocturna no es negro absoluto
+    escena.add(new THREE.AmbientLight(0x223044, 0.45));
 
     // ════════════════════════════════════════════════════════════
-    //  SHADER DE LUCES NOCTURNAS (tecnomarcadores)
-    //  400 puntos ámbar sobre la esfera que SOLO brillan en la cara
-    //  en sombra. Reutilizado del prototipo. dirLuz se actualiza por
-    //  frame (dirección del planeta hacia la estrella).
+    //  LUCES NOCTURNAS (tecnomarcadores)
+    //  - num: cantidad (más en mundos habitables, pocas en los demás)
+    //  - puntos PEGADOS a la superficie, finos y tenues.
     // ════════════════════════════════════════════════════════════
-    function crearLucesNocturnas(radio) {
-      const NUM = 400;
-      const p = new Float32Array(NUM * 3);
-      for (let i = 0; i < NUM; i++) {
+    function crearLucesNocturnas(radio, num) {
+      const p = new Float32Array(num * 3);
+      for (let i = 0; i < num; i++) {
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(2 * Math.random() - 1);
         p[i*3]   = radio * Math.sin(phi) * Math.cos(theta);
@@ -153,10 +146,10 @@
           varying float visibilidad;
           void main() {
             vec3 normalMundo = normalize((modelMatrix * vec4(position, 0.0)).xyz);
-            float cara = dot(normalMundo, dirLuz);   // >0 día, <0 noche
-            visibilidad = smoothstep(0.1, -0.2, cara); // solo brillan de noche
+            float cara = dot(normalMundo, dirLuz);      // >0 día, <0 noche
+            visibilidad = smoothstep(0.05, -0.25, cara); // solo de noche
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            gl_PointSize = 2.2;
+            gl_PointSize = 1.3;                          // más finas
           }
         `,
         fragmentShader: `
@@ -165,7 +158,7 @@
             if (visibilidad < 0.01) discard;
             float d = length(gl_PointCoord - vec2(0.5));
             if (d > 0.5) discard;
-            gl_FragColor = vec4(1.0, 0.85, 0.5, visibilidad); // ámbar cálido
+            gl_FragColor = vec4(1.0, 0.8, 0.45, visibilidad * 0.55); // más tenue
           }
         `,
         transparent: true,
@@ -175,32 +168,33 @@
     }
 
     // ════════════════════════════════════════════════════════════
-    //  LOS MUNDOS
-    //  tex      textura de superficie (imagenes/sistema/)
-    //  r        radio del planeta
-    //  dist     distancia orbital a la estrella
-    //  incl     inclinación de la órbita (grados)
-    //  color    color del punto/halo visto de lejos
-    //  habitable  → lleva luces de ciudad en la cara nocturna
-    //  anclado    → anclaje por marea (misma cara al sol). Decisión
-    //               física: con estrella K sólo los interiores suelen
-    //               anclarse; los exteriores rotan libres. AJUSTABLE AQUÍ.
+    //  LOS MUNDOS  (ordenados por lógica térmica: del más caliente,
+    //  pegado a la estrella, al más frío en el exterior)
+    //
+    //  r       radio (relaciones realistas: rocosos pequeños, gigante
+    //          gaseoso mucho mayor, pero todos muy por debajo del sol)
+    //  dist    distancia orbital
+    //  incl    inclinación de la órbita (grados)
+    //  color   color del punto visto de lejos
+    //  luces   nº de luces de ciudad (0 = sin superficie habitada)
+    //  anclado anclaje por marea. Con estrella K sólo los interiores
+    //          suelen anclarse; los de la zona habitable y exteriores, no.
     // ════════════════════════════════════════════════════════════
     const mundos = [
-      { tex: '1-islas.png',     r: 0.9, dist: 7,  incl: 0,  color: 0x6fae7a, habitable: true,  anclado: true  },
-      { tex: '2-desertica.png', r: 1.0, dist: 9.5,incl: 0,  color: 0xc88a4a, habitable: false, anclado: true  },
-      { tex: '3-helado.png',    r: 0.85,dist: 12, incl: 0,  color: 0xaccadf, habitable: false, anclado: false },
-      { tex: '4-templado.png',  r: 1.1, dist: 15, incl: 0,  color: 0x7bbf8f, habitable: true,  anclado: false },
-      { tex: '5-lava.png',      r: 0.8, dist: 18, incl: 0,  color: 0xd1552e, habitable: false, anclado: false },
-      { tex: '8-roca.png',      r: 0.7, dist: 21, incl: 14, color: 0x8a7f72, habitable: false, anclado: false },
-      { tex: '6-gaseoso1.png',  r: 2.2, dist: 26, incl: 0,  color: 0xb79a6e, habitable: false, anclado: false },
-      { tex: '7-estepa.png',    r: 1.0, dist: 31, incl: 0,  color: 0x9fae73, habitable: false, anclado: false }
+      { tex: '5-lava.png',      r: 0.35, dist: 12, incl: 0,  color: 0xd1552e, luces: 30,  anclado: true  }, // magmático, el más interior
+      { tex: '2-desertica.png', r: 0.45, dist: 16, incl: 0,  color: 0xc88a4a, luces: 120, anclado: true  }, // desértico, caliente y seco
+      { tex: '8-roca.png',      r: 0.30, dist: 20, incl: 14, color: 0x8a7f72, luces: 60,  anclado: false }, // rocoso desplazado (órbita inclinada)
+      { tex: '1-islas.png',     r: 0.50, dist: 26, incl: 0,  color: 0x6fae7a, luces: 650, anclado: false }, // archipiélagos — zona habitable
+      { tex: '4-templado.png',  r: 0.55, dist: 31, incl: 0,  color: 0x7bbf8f, luces: 550, anclado: false }, // templado — zona habitable
+      { tex: '7-estepa.png',    r: 0.45, dist: 38, incl: 0,  color: 0x9fae73, luces: 150, anclado: false }, // estepa, más frío
+      { tex: '3-helado.png',    r: 0.40, dist: 46, incl: 0,  color: 0xaccadf, luces: 40,  anclado: false }, // helado, exterior
+      { tex: '6-gaseoso1.png',  r: 1.40, dist: 58, incl: 0,  color: 0xb79a6e, luces: 0,   anclado: false }  // gigante gaseoso — sin superficie, sin luces
     ];
 
     const planetas = [];
 
     mundos.forEach((m) => {
-      const grupo = new THREE.Group(); // el grupo se traslada por la órbita; el mesh rota dentro
+      const grupo = new THREE.Group(); // se traslada por la órbita; el mesh rota dentro
       escena.add(grupo);
 
       const tex = cargador.load('../imagenes/sistema/' + m.tex);
@@ -217,14 +211,14 @@
       }));
       grupo.add(punto);
 
-      // Luces nocturnas si es habitable (hijas del mesh → rotan con él)
+      // Luces nocturnas pegadas a la superficie (hijas del mesh → rotan con él)
       let luces = null;
-      if (m.habitable) {
-        luces = crearLucesNocturnas(m.r * 1.004);
+      if (m.luces > 0) {
+        luces = crearLucesNocturnas(m.r * 1.0015, m.luces);
         mesh.add(luces);
       }
 
-      // Órbita visible, inclinada
+      // Órbita visible, inclinada — MUY fina/tenue (se quitará en la versión final)
       const inclRad = m.incl * Math.PI / 180;
       const pts = [];
       for (let i = 0; i <= 160; i++) {
@@ -236,7 +230,7 @@
       }
       const orbita = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints(pts),
-        new THREE.LineBasicMaterial({ color: 0x2a3a4a, transparent: true, opacity: 0.5 })
+        new THREE.LineBasicMaterial({ color: 0x1c2630, transparent: true, opacity: 0.18 })
       );
       escena.add(orbita);
 
@@ -245,7 +239,7 @@
         dist: m.dist,
         incl: inclRad,
         angulo: Math.random() * Math.PI * 2,
-        velocidad: 0.02 / Math.sqrt(m.dist), // más lejos → más lento (sabor kepleriano)
+        velocidad: 0.02 / Math.sqrt(m.dist),
         anclado: m.anclado,
         r: m.r
       });
@@ -268,7 +262,7 @@
       if (hit.length) {
         planetaEnfocado = planetas.find(p => p.mesh === hit[0].object || p.punto === hit[0].object);
       } else {
-        planetaEnfocado = null; // volver a la vista general
+        planetaEnfocado = null;
       }
     });
 
@@ -277,7 +271,8 @@
     // ════════════════════════════════════════════════════════════
     const objetivoPos = new THREE.Vector3();
     const objetivoMira = new THREE.Vector3();
-    const dirCam = new THREE.Vector3();
+    const fuera = new THREE.Vector3();
+    const ARRIBA = new THREE.Vector3(0, 1, 0);
 
     function animar() {
       requestAnimationFrame(animar);
@@ -285,37 +280,37 @@
       haloSol.position.copy(sol.position);
 
       planetas.forEach((p) => {
-        // Traslación orbital
         p.angulo += p.velocidad;
         const x = Math.cos(p.angulo) * p.dist;
         const z = Math.sin(p.angulo) * p.dist;
         const y = Math.sin(p.angulo) * p.dist * Math.sin(p.incl);
         p.grupo.position.set(x, y, z * Math.cos(p.incl));
 
-        // Anclaje por marea vs rotación libre
         if (p.anclado) {
-          p.mesh.lookAt(0, 0, 0);        // misma cara a la estrella
+          p.mesh.lookAt(0, 0, 0);     // misma cara a la estrella
         } else {
-          p.mesh.rotation.y += 0.01;     // rota libre
+          p.mesh.rotation.y += 0.01;  // rota libre
         }
 
-        // Distancia a cámara → el punto se lee de lejos y se desvanece de cerca
         const d = camara.position.distanceTo(p.grupo.position);
-        p.punto.scale.setScalar(THREE.MathUtils.clamp(d * 0.028, 0.6, 7));
-        p.punto.material.opacity = THREE.MathUtils.clamp((d - 4) / 7, 0, 1);
+        p.punto.scale.setScalar(THREE.MathUtils.clamp(d * 0.03, 0.5, 9));
+        p.punto.material.opacity = THREE.MathUtils.clamp((d - 4) / 8, 0, 1);
 
-        // Luces nocturnas: dirección del planeta hacia la estrella (origen)
         if (p.luces) {
+          // dirección del planeta HACIA la estrella (en el origen)
           p.luces.material.uniforms.dirLuz.value.copy(p.grupo.position).multiplyScalar(-1).normalize();
         }
       });
 
-      // Cámara: vuela al planeta enfocado o vuelve a la vista general
+      // Cámara: al planeta enfocado (por FUERA de la órbita y ELEVADA,
+      // así el sol nunca se interpone entre cámara y planeta) o a la vista general.
       if (planetaEnfocado) {
         const pos = planetaEnfocado.grupo.position;
-        // posición de cámara: a un lado del planeta, fuera de él
-        dirCam.subVectors(camara.position, pos).normalize().multiplyScalar(planetaEnfocado.r * 6 + 4);
-        objetivoPos.addVectors(pos, dirCam);
+        const r = planetaEnfocado.r;
+        fuera.copy(pos).normalize();                        // radial: del sol hacia el planeta
+        objetivoPos.copy(pos)
+          .addScaledVector(fuera, r * 5 + 3)                // nos apartamos hacia fuera
+          .addScaledVector(ARRIBA, r * 6 + 4);              // y por encima (vista cenital)
         objetivoMira.copy(pos);
       } else {
         objetivoPos.copy(VISTA_GENERAL);
