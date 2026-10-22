@@ -136,11 +136,24 @@
     //  cualquier mundo). La luz sale de su centro.
     // ════════════════════════════════════════════════════════════
     const RADIO_SOL = 6.0;
-    const matSol = new THREE.MeshBasicMaterial({ color: 0xffb066 });
+    const matSol = new THREE.MeshBasicMaterial({ color: 0xd8c3a8 }); // color de reserva (pálido) si no hay textura
     cargador.load(
       '../imagenes/sistema/sol.png',
-      // color muy por debajo de blanco → atenúa la textura al ~20% de brillo. Ajustable.
-      (t) => { t.colorSpace = THREE.SRGBColorSpace; matSol.map = t; matSol.color.set(0x332a1c); matSol.needsUpdate = true; },
+      (t) => {
+        // Desaturar la textura al vuelo: menos color, MISMO brillo (no la apaga).
+        // Ajusta 'saturate(0.3)' entre 0 (gris) y 1 (color original).
+        const img = t.image;
+        const cv = document.createElement('canvas');
+        cv.width = img.width; cv.height = img.height;
+        const cx = cv.getContext('2d');
+        cx.filter = 'saturate(0.3)';
+        cx.drawImage(img, 0, 0);
+        const td = new THREE.CanvasTexture(cv);
+        td.colorSpace = THREE.SRGBColorSpace;
+        matSol.map = td;
+        matSol.color.set(0xffffff); // brillo pleno; el color ya lo rebajó el filtro
+        matSol.needsUpdate = true;
+      },
       undefined,
       () => {}
     );
