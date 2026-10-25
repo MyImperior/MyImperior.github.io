@@ -65,7 +65,7 @@
   <div id="marco-memoria"></div>
 
   <nav>
-    <a href="secciones/ciencia.html">Ciencia</a>
+    <a href="secciones/sistema.html">Ciencia</a>
     <a href="secciones/cienciaficcion.html">Ciencia Ficción</a>
     <a href="secciones/arte.html">Arte</a>
     <a href="secciones/memoria.html">Memoria</a>
@@ -78,12 +78,12 @@ import { animar } from './js/transiciones.js';
 
     let transicionEnCurso = false;
 
-  async function transicionACiencia() {
+  async function transicionASistema() {
       transicionEnCurso = true;
       // FASE 1: el barco se pierde entre las partículas (saturación parcial)
       await animar({ desde: 0.25, hasta: 0.55, duracion: 2800, alCambiar: setOpacidadParticulas });
-      // FASE 2 en adelante: pendientes de construir
-      transicionEnCurso = false; // temporal, para poder re-probar sin recargar
+      // FASE 2 en adelante: pendientes de construir. De momento, navegar al sistema.
+      window.location.href = 'secciones/sistema.html';
     }
     document.addEventListener('click', (e) => {
       if (transicionEnCurso) return;
@@ -98,7 +98,7 @@ import { animar } from './js/transiciones.js';
       } else if (x > w * 0.65) {
         window.location.href = 'secciones/arte.html';
       } else if (y < h * 0.62) {
-        transicionACiencia();
+        transicionASistema();
       }
     });
 
