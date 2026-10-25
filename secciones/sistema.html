@@ -303,6 +303,9 @@
     const raton = new THREE.Vector2();
     let enfocado = null;   // planeta enfocado (null = vista general)
     let volando = false;   // true mientras la cámara viaja a su destino
+    let tProg = 0;                          // progreso de la transición 0→1 (evita el salto al fijar)
+    const entryPos  = new THREE.Vector3();  // pose de cámara al arrancar la transición
+    const entryMira = new THREE.Vector3();
 
     // Distinguir un clic real de un arrastre de los controles de cámara
     let abajoX = 0, abajoY = 0;
@@ -316,9 +319,9 @@
       const hit = ray.intersectObjects(planetas.map(p => p.mesh), false);
       if (hit.length) {
         const p = planetas.find(pp => pp.mesh === hit[0].object);
-        if (p !== enfocado) { enfocado = p; volando = true; }
+        if (p !== enfocado) { enfocado = p; volando = true; tProg = 0; entryPos.copy(camara.position); entryMira.copy(controls.target); }
       } else if (enfocado) {
-        enfocado = null; volando = true; // volver a la vista general
+        enfocado = null; volando = true; tProg = 0; entryPos.copy(camara.position); entryMira.copy(miraFoco); // volver a la vista general
       }
     });
 
@@ -330,6 +333,8 @@
     const destino  = new THREE.Vector3();
     const miraFoco = new THREE.Vector3();
     const ARRIBA   = new THREE.Vector3(0, 1, 0);
+
+    function suavizar(t) { return t * t * (3 - 2 * t); } // smoothstep para transiciones
 
     function animar() {
       requestAnimationFrame(animar);
@@ -357,35 +362,40 @@
 
       // ─── Cámara ───
       if (enfocado) {
-        // Plano enfocado CO-MÓVIL: viajamos "pegados" al planeta, que se ve
-        // grande y centrado, con medio sol entrando por la derecha y FIJO.
-        // La cámara acompaña al planeta en su órbita → planeta y sol quedan
-        // quietos en cuadro; solo se mueven los demás planetas.
+        // Plano enfocado CO-MÓVIL en vista de TERMINADOR: vemos algo más de
+        // media cara ILUMINADA (geografía) con la línea día/noche y las luces
+        // en la mitad oscura. La cámara acompaña al planeta → queda fijo en
+        // cuadro; solo se mueven los demás planetas. (El sol queda fuera de
+        // cuadro: ver nota — no se puede ver la cara diurna Y el sol a la vez.)
         const pos = enfocado.grupo.position;
-        const d = 12.7 * enfocado.r; // distancia cámara-planeta → el planeta ocupa ~20% de la pantalla
+        const d = 12.7 * enfocado.r;                  // distancia → el planeta ocupa ~20% de pantalla
         fuera.copy(pos).normalize();                  // sol → planeta (radial)
-        lado.crossVectors(ARRIBA, fuera).normalize(); // tangencial (si el sol sale por la izquierda, invertir el signo de 0.56)
+        lado.crossVectors(ARRIBA, fuera).normalize(); // tangencial (si la mitad iluminada sale al otro lado, invertir el signo de 0.93)
         destino.copy(pos)
-          .addScaledVector(fuera, 0.80 * d)           // sobre todo por fuera (el sol queda al fondo)
-          .addScaledVector(lado,  0.56 * d)           // desvío lateral → empuja el sol hacia un borde
-          .addScaledVector(ARRIBA, 0.18 * d);         // leve elevación
+          .addScaledVector(fuera, -0.10 * d)          // un pelín hacia el sol → algo más de media cara iluminada
+          .addScaledVector(lado,   0.93 * d)          // sobre todo lateral → vista de terminador
+          .addScaledVector(ARRIBA, 0.26 * d);         // leve elevación
         controls.enabled = false;
         if (volando) {
-          camara.position.lerp(destino, 0.08);
-          miraFoco.lerp(pos, 0.08);
-          if (camara.position.distanceTo(destino) < 0.3) volando = false;
+          tProg = Math.min(1, tProg + 0.025);
+          const e = suavizar(tProg);
+          camara.position.lerpVectors(entryPos, destino, e);
+          miraFoco.lerpVectors(entryMira, pos, e);
+          if (tProg >= 1) volando = false;
         } else {
-          camara.position.copy(destino);              // co-móvil: fijo respecto al planeta y al sol
+          camara.position.copy(destino);              // co-móvil: fijo respecto al planeta
           miraFoco.copy(pos);
         }
         camara.lookAt(miraFoco);
       } else if (volando) {
         // Volver a la vista general
         controls.enabled = false;
-        camara.position.lerp(VISTA_GENERAL, 0.06);
-        miraFoco.lerp(MIRADA_GENERAL, 0.06);
+        tProg = Math.min(1, tProg + 0.02);
+        const e = suavizar(tProg);
+        camara.position.lerpVectors(entryPos, VISTA_GENERAL, e);
+        miraFoco.lerpVectors(entryMira, MIRADA_GENERAL, e);
         camara.lookAt(miraFoco);
-        if (camara.position.distanceTo(VISTA_GENERAL) < 0.4) {
+        if (tProg >= 1) {
           volando = false;
           controls.target.copy(MIRADA_GENERAL);       // devolver el mando a OrbitControls
         }
