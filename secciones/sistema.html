@@ -283,21 +283,7 @@
         mesh.add(luces);
       }
 
-      // Órbita visible, inclinada — MUY fina/tenue (se quitará en la versión final)
-      const inclRad = m.incl * Math.PI / 180;
-      const pts = [];
-      for (let i = 0; i <= 160; i++) {
-        const a = (i / 160) * Math.PI * 2;
-        const x = Math.cos(a) * m.dist;
-        const z = Math.sin(a) * m.dist;
-        const y = Math.sin(a) * m.dist * Math.sin(inclRad);
-        pts.push(new THREE.Vector3(x, y, z * Math.cos(inclRad)));
-      }
-      const orbita = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints(pts),
-        new THREE.LineBasicMaterial({ color: 0x1c2630, transparent: true, opacity: 0.18 })
-      );
-      escena.add(orbita);
+      const inclRad = m.incl * Math.PI / 180; // (líneas de órbita eliminadas)
 
       planetas.push({
         grupo, mesh, luces,
@@ -317,7 +303,6 @@
     const raton = new THREE.Vector2();
     let enfocado = null;   // planeta enfocado (null = vista general)
     let volando = false;   // true mientras la cámara viaja a su destino
-    const planetaPrev = new THREE.Vector3();
 
     // Distinguir un clic real de un arrastre de los controles de cámara
     let abajoX = 0, abajoY = 0;
@@ -331,7 +316,7 @@
       const hit = ray.intersectObjects(planetas.map(p => p.mesh), false);
       if (hit.length) {
         const p = planetas.find(pp => pp.mesh === hit[0].object);
-        if (p !== enfocado) { enfocado = p; volando = true; planetaPrev.copy(p.grupo.position); }
+        if (p !== enfocado) { enfocado = p; volando = true; }
       } else if (enfocado) {
         enfocado = null; volando = true; // volver a la vista general
       }
@@ -343,7 +328,7 @@
     const fuera    = new THREE.Vector3();
     const lado     = new THREE.Vector3();
     const destino  = new THREE.Vector3();
-    const destMira = new THREE.Vector3();
+    const miraFoco = new THREE.Vector3();
     const ARRIBA   = new THREE.Vector3(0, 1, 0);
 
     function animar() {
@@ -372,43 +357,43 @@
 
       // ─── Cámara ───
       if (enfocado) {
+        // Plano enfocado CO-MÓVIL: viajamos "pegados" al planeta, que se ve
+        // grande y centrado, con medio sol entrando por la derecha y FIJO.
+        // La cámara acompaña al planeta en su órbita → planeta y sol quedan
+        // quietos en cuadro; solo se mueven los demás planetas.
         const pos = enfocado.grupo.position;
-        const r = enfocado.r;
-        if (volando) {
-          // Destino: a un lado del planeta, algo por fuera y elevado. Se mira
-          // hacia un punto entre el planeta y el sol → la vista va "hacia el
-          // sol" sin que el sol quede justo detrás del planeta. (constantes
-          // ajustables por ojo)
-          fuera.copy(pos).normalize();                  // sol → planeta
-          lado.crossVectors(ARRIBA, fuera).normalize(); // tangencial a la órbita
-          destino.copy(pos)
-            .addScaledVector(fuera, r * 3 + 6)
-            .addScaledVector(lado,  r * 8 + 11)
-            .addScaledVector(ARRIBA, r * 4 + 5);
-          destMira.copy(pos).multiplyScalar(0.65);      // punto entre planeta y sol
-          camara.position.lerp(destino, 0.06);
-          controls.target.lerp(destMira, 0.06);
-          controls.enabled = false;
-          if (camara.position.distanceTo(destino) < 0.4) volando = false;
-        } else {
-          // Seguimiento: cámara y objetivo acompañan al planeta en su órbita,
-          // conservando el ángulo que el usuario haya elegido con el ratón.
-          destino.copy(pos).sub(planetaPrev);           // desplazamiento del planeta
-          camara.position.add(destino);
-          controls.target.add(destino);
-          controls.enabled = true;                      // órbita/zoom libres alrededor del planeta
-        }
-        planetaPrev.copy(pos);
-      } else if (volando) {
-        camara.position.lerp(VISTA_GENERAL, 0.06);
-        controls.target.lerp(MIRADA_GENERAL, 0.06);
+        const d = 12.7 * enfocado.r; // distancia cámara-planeta → el planeta ocupa ~20% de la pantalla
+        fuera.copy(pos).normalize();                  // sol → planeta (radial)
+        lado.crossVectors(ARRIBA, fuera).normalize(); // tangencial (si el sol sale por la izquierda, invertir el signo de 0.56)
+        destino.copy(pos)
+          .addScaledVector(fuera, 0.80 * d)           // sobre todo por fuera (el sol queda al fondo)
+          .addScaledVector(lado,  0.56 * d)           // desvío lateral → empuja el sol hacia un borde
+          .addScaledVector(ARRIBA, 0.18 * d);         // leve elevación
         controls.enabled = false;
-        if (camara.position.distanceTo(VISTA_GENERAL) < 0.4) volando = false;
+        if (volando) {
+          camara.position.lerp(destino, 0.08);
+          miraFoco.lerp(pos, 0.08);
+          if (camara.position.distanceTo(destino) < 0.3) volando = false;
+        } else {
+          camara.position.copy(destino);              // co-móvil: fijo respecto al planeta y al sol
+          miraFoco.copy(pos);
+        }
+        camara.lookAt(miraFoco);
+      } else if (volando) {
+        // Volver a la vista general
+        controls.enabled = false;
+        camara.position.lerp(VISTA_GENERAL, 0.06);
+        miraFoco.lerp(MIRADA_GENERAL, 0.06);
+        camara.lookAt(miraFoco);
+        if (camara.position.distanceTo(VISTA_GENERAL) < 0.4) {
+          volando = false;
+          controls.target.copy(MIRADA_GENERAL);       // devolver el mando a OrbitControls
+        }
       } else {
         controls.enabled = true;                        // vista general libre
+        controls.update();
       }
 
-      controls.update();
       renderer.render(escena, camara);
     }
     animar();
