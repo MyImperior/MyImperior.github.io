@@ -125,13 +125,17 @@
     const RADIO_SOL = 6.0;
 
     // ── MANDOS DEL SOL (ajustar a ojo) ─────────────────────────────
+    // Referencia visual: el Sol fotografiado por el satélite SDO de la NASA en
+    // ultravioleta (304 Å, color falso naranja). Muestra la CROMOSFERA: una red
+    // de celdas de bordes brillantes, regiones activas blancas, filamentos
+    // oscuros y un borde peludo con protuberancias.
     const SOL = {
-      colorCentro: '#ffdfa8', // color en el centro del disco (más caliente → más claro)
-      colorBorde:  '#d4501a', // color hacia el borde (capas más altas y frías)
-      detalle:     0.8,       // 0 = disco liso · 1 = plasma y granulación a tope
-      velocidad:   1.0,       // ritmo al que hierve la superficie (no afecta a la rotación)
-      cromosfera:  1.0,       // borde turbulento: 0 = borde limpio · 1 = franja roja que parpadea
-      numGrupos:   4          // grupos de manchas (cada grupo: líder + seguidora + poro)
+      brillo:      1.0,  // brillo general del disco
+      contraste:   1.0,  // 0.6 = suave · 1.4 = muy marcado (red, regiones activas, filamentos)
+      saturacion:  0.8,  // 1 = naranja intenso como la foto del SDO · menos = más apagado
+      velocidad:   1.0,  // ritmo al que cambia la superficie (no afecta a la rotación)
+      cromosfera:  1.0,  // borde: 0 = limpio · 1 = espículas y protuberancias
+      numGrupos:   4     // regiones activas (cada una con un grupo de manchas: líder + seguidora + poro)
     };
 
     // Ruido simplex 3D (Ian McEwan / Ashima Arts, licencia MIT).
@@ -217,16 +221,13 @@
     }
     while (manchas.length < MAX_MANCHAS) manchas.push(new THREE.Vector4(0, 1, 0, 0)); // huecos vacíos (tamaño 0)
 
-    // Leer el hex TAL CUAL (THREE.Color lo convertiría a espacio lineal y saldría oscuro)
-    function vec3DeHex(hex) { const n = parseInt(hex.slice(1), 16); return new THREE.Vector3((n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255); }
-
     const matSol = new THREE.ShaderMaterial({
       uniforms: {
         uTiempo,
-        uCentro:  { value: vec3DeHex(SOL.colorCentro) },
-        uBorde:   { value: vec3DeHex(SOL.colorBorde) },
-        uDetalle: { value: SOL.detalle },
-        uManchas: { value: manchas }
+        uBrillo:     { value: SOL.brillo },
+        uContraste:  { value: SOL.contraste },
+        uSaturacion: { value: SOL.saturacion },
+        uManchas:    { value: manchas }
       },
       vertexShader: `
         varying vec3 vPos;      // punto de la esfera unidad (espacio del objeto → gira con el sol)
@@ -242,72 +243,125 @@
       `,
       fragmentShader: RUIDO_GLSL + `
         uniform float uTiempo;
-        uniform vec3  uCentro;
-        uniform vec3  uBorde;
-        uniform float uDetalle;
+        uniform float uBrillo;
+        uniform float uContraste;
+        uniform float uSaturacion;
         uniform vec4  uManchas[${MAX_MANCHAS}];
         varying vec3 vPos;
         varying vec3 vNormalV;
         varying vec3 vViewPos;
 
-        // Una mancha: umbra (núcleo oscuro) + penumbra de filamentos radiales.
-        // Los filamentos son el campo magnético saliendo casi en horizontal
-        // desde el núcleo: por eso se ven como rayas que apuntan al centro.
+        // ── Ruido CELULAR (Worley): reparte puntos al azar y mide la distancia
+        // al más cercano (F1) y al segundo (F2). Donde F2−F1 es casi 0 estamos en
+        // la FRONTERA entre dos celdas → así salen las celdas de bordes brillantes.
+        vec3 hash3(vec3 p) {
+          p = vec3(dot(p, vec3(127.1, 311.7, 74.7)),
+                   dot(p, vec3(269.5, 183.3, 246.1)),
+                   dot(p, vec3(113.5, 271.9, 124.6)));
+          return fract(sin(p) * 43758.5453123);
+        }
+        vec2 worley(vec3 p, float t) {
+          vec3 i = floor(p), f = fract(p);
+          float f1 = 8.0, f2 = 8.0;
+          for (int z = -1; z <= 1; z++)
+          for (int y = -1; y <= 1; y++)
+          for (int x = -1; x <= 1; x++) {
+            vec3 g = vec3(float(x), float(y), float(z));
+            vec3 o = 0.5 + 0.4 * sin(t + 6.2831 * hash3(i + g)); // los puntos se mueven → las celdas cambian
+            float d = length(g + o - f);
+            if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) { f2 = d; }
+          }
+          return vec2(f1, f2);
+        }
+
+        // Paleta sacada de la foto del SDO: de rojo casi negro a blanco cálido
+        vec3 rampa(float v) {
+          vec3 c0 = vec3(0.18, 0.03, 0.01);
+          vec3 c1 = vec3(0.60, 0.16, 0.03);
+          vec3 c2 = vec3(0.93, 0.42, 0.08);
+          vec3 c3 = vec3(1.00, 0.68, 0.28);
+          vec3 c4 = vec3(1.00, 0.93, 0.78);
+          v = clamp(v, 0.0, 1.0) * 4.0;
+          if (v < 1.0) return mix(c0, c1, v);
+          if (v < 2.0) return mix(c1, c2, v - 1.0);
+          if (v < 3.0) return mix(c2, c3, v - 2.0);
+          return mix(c3, c4, v - 3.0);
+        }
+
+        // Una mancha: umbra (núcleo oscuro) + penumbra de filamentos radiales
+        // (el campo magnético saliendo casi en horizontal desde el núcleo).
         float sombraMancha(vec3 p, vec4 m, float idx, float t) {
           vec3 c = m.xyz;
-          float s = m.w * (0.9 + 0.1 * sin(t * 0.07 + idx * 1.7)); // crece y mengua despacio
-          if (s <= 0.0 || dot(p, c) < 0.9) return 1.0;                // lejos: no afecta
+          float s = m.w * (0.9 + 0.1 * sin(t * 0.07 + idx * 1.7));
+          if (s <= 0.0 || dot(p, c) < 0.9) return 1.0;
           vec3 u = normalize(cross(c, abs(c.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
           vec3 v = cross(c, u);
-          vec2 q = vec2(dot(p, u), dot(p, v));   // coordenadas sobre un plano tangente a la mancha
+          vec2 q = vec2(dot(p, u), dot(p, v));
           float d = length(q);
           vec2 dir = q / max(d, 1e-5);
-          // contorno irregular (ninguna mancha real es un círculo)
           float r = s * (1.0 + 0.15 * snoise(vec3(dir * 1.2, idx * 3.1 + t * 0.02)));
-          float x = d / r;                       // 0 = centro · 1 = borde exterior de la penumbra
+          float x = d / r;
           if (x > 1.05) return 1.0;
           float umbra    = 1.0 - smoothstep(0.36, 0.42, x * (1.0 + 0.12 * snoise(vec3(dir * 3.0, idx))));
           float penumbra = 1.0 - smoothstep(0.80, 1.0, x);
-          float fil = snoise(vec3(dir * 16.0, x * 0.5 + idx * 7.0 + t * 0.04)); // rayas radiales (estiradas hacia fuera)
-          float brPen = 0.56 + 0.22 * fil;
-          float b = mix(1.0, brPen, penumbra);
+          float fil = snoise(vec3(dir * 16.0, x * 0.5 + idx * 7.0 + t * 0.04));
+          float b = mix(1.0, 0.56 + 0.22 * fil, penumbra);
           return mix(b, 0.07, umbra);
         }
 
         void main() {
           vec3 p = vPos;
           float t = uTiempo;
+          float mu = clamp(dot(normalize(vNormalV), normalize(-vViewPos)), 0.0, 1.0); // 1 centro · 0 borde
 
-          // mu = 1 en el centro del disco, 0 en el borde
-          float mu = clamp(dot(normalize(vNormalV), normalize(-vViewPos)), 0.0, 1.0);
+          // Deformación suave: las celdas no deben salir regulares
+          vec3 w = vec3(fbm3(p*2.0 + vec3(0.0, 0.0,  t*0.05)),
+                        fbm3(p*2.0 + vec3(5.2, 1.3, -t*0.04)),
+                        fbm3(p*2.0 + vec3(9.1, 7.7,  t*0.035)));
 
-          // PLASMA: el ruido se muestrea en un sitio desplazado por OTRO ruido
-          // (domain warping) → remolinos que fluyen.
-          vec3 w = vec3(fbm3(p*1.6 + vec3(0.0, 0.0,  t*0.10)),
-                        fbm3(p*1.6 + vec3(5.2, 1.3, -t*0.085)),
-                        fbm3(p*1.6 + vec3(9.1, 7.7,  t*0.07)));
-          float plasma = fbm5(p*3.2 + w*1.5 + vec3(0.0, t*0.09, 0.0));
+          // Temblor fino: hace que los bordes de las celdas no sean líneas limpias
+          vec3 temblor = vec3(snoise(p*22.0 + vec3(t*0.2)), snoise(p*22.0 + 11.0), snoise(p*22.0 + 23.0 - vec3(t*0.15)));
+          // 2) MOTEADO fino encima de todo
+          float mot = 0.5 + 0.5 * fbm3(p*60.0 + w*2.0 + vec3(t*0.3));
+          // 1) RED: celdas (supergránulos) con los bordes brillantes, en dos tamaños,
+          //    y ROTA en grumos (en la foto no hay líneas continuas, hay cuentas brillantes)
+          vec2 celG = worley(p*13.0 + w*1.6 + temblor*0.25, t*0.20);
+          vec2 celP = worley(p*32.0 + w*3.0 + temblor*0.35, t*0.35);
+          float redG = 1.0 - smoothstep(0.0, 0.14, celG.y - celG.x);
+          float redP = 1.0 - smoothstep(0.0, 0.10, celP.y - celP.x);
+          float grumos = smoothstep(0.35, 0.75, 0.5 + 0.5 * snoise(p*45.0 + w*2.0 + vec3(t*0.4)));
+          float red = max(redG * 0.8, redP * 0.6) * (0.25 + 0.75 * grumos);
+          // 3) ZONAS grandes algo más claras u oscuras
+          float zona = fbm3(p*3.0 + w*0.7 + vec3(t*0.03));
+          // 4) FILAMENTOS: líneas oscuras finas y sinuosas (plasma frío suspendido)
+          float cresta = 1.0 - abs(snoise(p*2.6 + w*1.3 + vec3(31.0, 0.0, t*0.01)));
+          float filam = smoothstep(0.92, 0.985, cresta) * smoothstep(0.1, 0.5, snoise(p*1.7 + 50.0));
+          // 5) REGIONES ACTIVAS: zonas que brillan alrededor de cada grupo de manchas
+          float act = 0.0;
+          for (int i = 0; i < ${MAX_MANCHAS}; i++) {
+            vec4 m = uManchas[i];
+            if (m.w <= 0.0) continue;
+            act = max(act, exp(-pow(length(p - m.xyz) / (m.w * 3.2), 2.0)));
+          }
 
-          // GRANULACIÓN: celdas de convección que "hierven" deprisa
-          float gran = snoise(p*42.0 + vec3(0.0, 0.0, t*0.8));
+          float v = 0.42 + 0.25*red*(0.5 + mot) + 0.20*(mot - 0.5) + 0.12*zona;
+          v += act * (0.28 + 0.55*red*mot);   // regiones activas: manchas claras casi blancas
+          v -= 0.14 * filam;
+          v = 0.5 + (v - 0.5) * uContraste;
+          v -= 0.18 * pow(1.0 - mu, 2.0);   // el borde, algo más rojo y oscuro (poco: en UV casi no se oscurece)
 
-          // color: más caliente (claro) en el centro, más frío (rojizo) en el borde
-          vec3 col = mix(uBorde, uCentro, mu);
-          col *= 0.94 + uDetalle * (0.20*plasma + 0.07*gran);
+          vec3 col = rampa(v) * uBrillo;
 
-          // FÁCULAS: zonas brillantes que solo destacan cerca del borde
-          col *= 1.0 + uDetalle * smoothstep(0.2, 0.6, plasma) * pow(1.0 - mu, 2.0) * 0.35;
-
-          // MANCHAS
+          // MANCHAS (lo oscuro tira a rojo-pardo, no a gris)
           float sombra = 1.0;
           for (int i = 0; i < ${MAX_MANCHAS}; i++) {
             sombra = min(sombra, sombraMancha(p, uManchas[i], float(i), t));
           }
-          // lo oscuro de una mancha tira a rojo-pardo (está más fría), no a gris
           col *= sombra * mix(vec3(1.0, 0.62, 0.45), vec3(1.0), smoothstep(0.1, 0.9, sombra));
 
-          // OSCURECIMIENTO DEL LIMBO (u ≈ 0.68, típico de estrella K)
-          col *= 1.0 - 0.68 * (1.0 - mu);
+          // SATURACIÓN: 1 = como la foto · menos = más apagado
+          float l = dot(col, vec3(0.299, 0.587, 0.114));
+          col = mix(vec3(l), col, uSaturacion);
 
           gl_FragColor = vec4(min(col, vec3(1.0)), 1.0);
         }
@@ -316,25 +370,28 @@
     const sol = new THREE.Mesh(new THREE.SphereGeometry(RADIO_SOL, 128, 128), matSol);
     escena.add(sol);
 
-    // ── CROMOSFERA: el borde turbulento ────────────────────────────
-    // Una cáscara apenas mayor que el sol (6 %). Solo se pinta en el anillo
-    // que asoma POR FUERA del disco, y ahí el ruido decide hasta qué altura
-    // llega en cada punto → contorno irregular, rojizo y cambiante (como el
-    // Sol fotografiado con filtro H-alfa: las "espículas").
-    const ESCALA_CROMO = 1.06;
+    // ── CROMOSFERA: el borde peludo ────────────────────────────────
+    // Una cáscara un 8 % mayor que el sol. Solo se pinta en el anillo que asoma
+    // POR FUERA del disco. Ahí, en cada dirección alrededor del sol, el ruido
+    // decide hasta qué altura llega el plasma:
+    //  - espículas: muchos "pelos" finos que suben y bajan deprisa
+    //  - protuberancias: pocas lenguas más altas, ancladas a la superficie
+    const ESCALA_CROMO = 1.08;
     const MU_LIMBO = Math.sqrt(1 - 1 / (ESCALA_CROMO * ESCALA_CROMO)); // donde la cáscara toca el borde del disco
     const cromosfera = new THREE.Mesh(
       new THREE.SphereGeometry(RADIO_SOL * ESCALA_CROMO, 128, 128),
       new THREE.ShaderMaterial({
-        uniforms: { uTiempo, uFuerza: { value: SOL.cromosfera } },
+        uniforms: { uTiempo, uFuerza: { value: SOL.cromosfera }, uSaturacion: { value: SOL.saturacion } },
         vertexShader: `
           varying vec3 vPos;
           varying vec3 vNormalV;
           varying vec3 vViewPos;
+          varying vec3 vCentroV;   // centro del sol en espacio de cámara
           void main() {
             vPos = normalize(position);
             vec4 mv = modelViewMatrix * vec4(position, 1.0);
             vViewPos = mv.xyz;
+            vCentroV = (modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
             vNormalV = normalize(normalMatrix * normal);
             gl_Position = projectionMatrix * mv;
           }
@@ -342,21 +399,35 @@
         fragmentShader: RUIDO_GLSL + `
           uniform float uTiempo;
           uniform float uFuerza;
+          uniform float uSaturacion;
           varying vec3 vPos;
           varying vec3 vNormalV;
           varying vec3 vViewPos;
+          varying vec3 vCentroV;
           void main() {
             float mu = clamp(dot(normalize(vNormalV), normalize(-vViewPos)), 0.0, 1.0);
             const float MU_LIMBO = ${MU_LIMBO.toFixed(4)};
-            if (mu > MU_LIMBO + 0.02) discard;            // dentro del disco: nada
-            float altura = 1.0 - mu / MU_LIMBO;           // 0 pegado al borde · 1 lo más alto
-            // espículas: ruido fino que cambia deprisa
-            float n  = 0.5 + 0.5 * (0.75 * snoise(vPos * 18.0 + vec3(0.0, 0.0, uTiempo * 0.30))
-                                  + 0.25 * snoise(vPos * 40.0 + vec3(uTiempo * 0.5)));   // lenguas (espículas)
-            float n2 = 0.5 + 0.5 * snoise(vPos * 6.0 + vec3(uTiempo * 0.04));          // zonas más o menos activas
-            float alcance = smoothstep(0.30, 0.85, n) * (0.25 + 0.9 * n2) * uFuerza;   // hasta dónde llega aquí
-            float a = 1.0 - smoothstep(alcance * 0.35, alcance + 0.02, altura); // se desvanece al subir
-            gl_FragColor = vec4(vec3(0.95, 0.40, 0.18) * (0.5 + 0.45 * (1.0 - altura)), a * 0.6);
+            if (mu > MU_LIMBO + 0.01) discard;                // dentro del disco: nada
+            float altura = clamp(1.0 - mu / MU_LIMBO, 0.0, 1.0); // 0 pegado al borde · 1 lo más alto
+            float t = uTiempo;
+
+            // dirección alrededor del disco, tal como se ve en pantalla
+            vec2 dir = normalize(vViewPos.xy - vCentroV.xy);
+
+            // ESPÍCULAS: cada dirección tiene su altura → pelos finos verticales
+            float esp = 0.5 + 0.5 * snoise(vec3(dir * 70.0, t * 0.5));
+            float alcance = (0.18 + 0.30 * esp) * uFuerza;
+
+            // PROTUBERANCIAS: pocas, ancladas a la superficie (giran con el sol)
+            float zona = smoothstep(0.70, 0.95, snoise(vPos * 3.0 + vec3(t * 0.02)));
+            float estructura = 0.5 + 0.5 * snoise(vec3(dir * 30.0, altura * 4.0 - t * 0.3));
+            alcance = max(alcance, zona * (0.55 + 0.45 * estructura) * uFuerza);
+
+            float a = 1.0 - smoothstep(alcance * 0.4, alcance, altura); // se desvanece al subir
+            vec3 col = mix(vec3(0.93, 0.45, 0.12), vec3(0.55, 0.10, 0.02), altura);
+            float l = dot(col, vec3(0.299, 0.587, 0.114));
+            col = mix(vec3(l), col, uSaturacion);
+            gl_FragColor = vec4(col, a * 0.9);
           }
         `,
         transparent: true,
@@ -365,7 +436,7 @@
     );
     sol.add(cromosfera); // hija del sol: gira con él
 
-    // ── HALO (el de antes) ─────────────────────────────────────────
+    // ── HALO ─────────────────────────────────────────
     function texturaGlow() {
       const c = document.createElement('canvas');
       c.width = c.height = 64;
@@ -379,9 +450,9 @@
       return new THREE.CanvasTexture(c);
     }
     const haloSol = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: texturaGlow(), color: 0xffcc88, opacity: 0.3, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+      map: texturaGlow(), color: 0xff3a10, opacity: 0.45, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
     }));
-    haloSol.scale.setScalar(RADIO_SOL * 4.5);
+    haloSol.scale.setScalar(RADIO_SOL * 3.4); // resplandor rojo oscuro pegado al disco, como en la foto
     haloSol.renderOrder = -1; // primero el halo, luego el sol encima (su borde se funde con él)
     escena.add(haloSol);
 
