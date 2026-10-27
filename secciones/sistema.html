@@ -30,6 +30,10 @@
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
     // ════════════════════════════════════════════════════════════
     //  RENDERER / ESCENA / CÁMARA
@@ -56,7 +60,7 @@
     const controls = new OrbitControls(camara, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
-    controls.minDistance = 2;
+    controls.minDistance = 12; // = 2 × radio del sol: impide meter la cámara DENTRO de la estrella
     controls.maxDistance = 400;
     controls.target.copy(MIRADA_GENERAL);
     controls.update();
@@ -113,58 +117,244 @@
     );
 
     // ════════════════════════════════════════════════════════════
-    //  TEXTURA "GLOW" (halo radial) para que cada planeta se lea
-    //  como un PUNTO de color desde lejos.
-    // ════════════════════════════════════════════════════════════
-    function texturaGlow() {
-      const c = document.createElement('canvas');
-      c.width = c.height = 64;
-      const g = c.getContext('2d');
-      const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-      grad.addColorStop(0.0, 'rgba(255,255,255,1)');
-      grad.addColorStop(0.3, 'rgba(255,255,255,0.6)');
-      grad.addColorStop(1.0, 'rgba(255,255,255,0)');
-      g.fillStyle = grad;
-      g.fillRect(0, 0, 64, 64);
-      return new THREE.CanvasTexture(c);
-    }
-    const TEX_GLOW = texturaGlow();
-
-    // ════════════════════════════════════════════════════════════
-    //  ESTRELLA K (naranja). Lista para textura (imagenes/sistema/sol.png).
-    //  Ahora MUCHO mayor que los planetas (una estrella empequeñece a
-    //  cualquier mundo). La luz sale de su centro.
+    //  ESTRELLA K — 100% PROCEDURAL (shader), sin imagen.
+    //
+    //  Por qué así: el ruido se calcula a partir de la POSICIÓN 3D de cada
+    //  punto de la esfera, no de una imagen rectangular envuelta. Una
+    //  función 3D no tiene bordes ni polos → no hay costura ni pellizco.
+    //  Y como el ruido depende también del tiempo, la superficie evoluciona.
+    //
+    //  Tres piezas:
+    //   1) la esfera (fotosfera): plasma, granulación, manchas, fáculas
+    //      y oscurecimiento del limbo
+    //   2) la corona: un plano que siempre mira a la cámara (billboard) con
+    //      halo, serpentinas, protuberancias y alguna fulguración
+    //   3) el bloom (más abajo, en POSTPROCESADO): la "floración" de luz
     // ════════════════════════════════════════════════════════════
     const RADIO_SOL = 6.0;
-    const matSol = new THREE.MeshBasicMaterial({ color: 0xd8c3a8 }); // color de reserva (pálido) si no hay textura
-    cargador.load(
-      '../imagenes/sistema/sol.png',
-      (t) => {
-        // Desaturar la textura al vuelo: menos color, MISMO brillo (no la apaga).
-        // Ajusta 'saturate(0.3)' entre 0 (gris) y 1 (color original).
-        const img = t.image;
-        const cv = document.createElement('canvas');
-        cv.width = img.width; cv.height = img.height;
-        const cx = cv.getContext('2d');
-        cx.filter = 'saturate(0.3)';
-        cx.drawImage(img, 0, 0);
-        const td = new THREE.CanvasTexture(cv);
-        td.colorSpace = THREE.SRGBColorSpace;
-        matSol.map = td;
-        matSol.color.set(0xffffff); // brillo pleno; el color ya lo rebajó el filtro
-        matSol.needsUpdate = true;
+
+    // ── MANDOS DEL SOL (ajustar a ojo) ─────────────────────────────
+    const SOL = {
+      intensidad: 1.8,  // brillo del disco. >1 "quema" el centro (casi blanco) y alimenta el bloom.
+                        //   Baja a ~1.2 si quieres ver detalle en el centro; sube a ~2.5 para "cegador".
+      detalle:    0.8,  // 0 = disco liso · 1 = plasma, manchas y fáculas a tope
+      corona:     1.0,  // brillo de halo / serpentinas / protuberancias
+      velocidad:  1.0   // ritmo al que evoluciona la superficie (no afecta a la rotación)
+    };
+    const BLOOM = {
+      fuerza: 0.6,      // cuánto se derrama la luz
+      radio:  0.35,     // cuánto se extiende el derrame
+      umbral: 0.95      // solo "florece" lo que supera este brillo. Con <0.9 empezaría
+                        //   a florecer también el fondo de nebulosa. No bajar mucho.
+    };
+
+    // Ruido simplex 3D (Ian McEwan / Ashima Arts, licencia MIT).
+    // Devuelve un valor suave entre -1 y 1 para cualquier punto 3D.
+    const RUIDO_GLSL = `
+      vec3 mod289(vec3 x){ return x - floor(x * (1.0/289.0)) * 289.0; }
+      vec4 mod289(vec4 x){ return x - floor(x * (1.0/289.0)) * 289.0; }
+      vec4 permute(vec4 x){ return mod289(((x*34.0)+10.0)*x); }
+      vec4 taylorInvSqrt(vec4 r){ return 1.79284291400159 - 0.85373472095314 * r; }
+      float snoise(vec3 v){
+        const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+        const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+        vec3 i  = floor(v + dot(v, C.yyy));
+        vec3 x0 = v - i + dot(i, C.xxx);
+        vec3 g  = step(x0.yzx, x0.xyz);
+        vec3 l  = 1.0 - g;
+        vec3 i1 = min(g.xyz, l.zxy);
+        vec3 i2 = max(g.xyz, l.zxy);
+        vec3 x1 = x0 - i1 + C.xxx;
+        vec3 x2 = x0 - i2 + C.yyy;
+        vec3 x3 = x0 - D.yyy;
+        i = mod289(i);
+        vec4 p = permute(permute(permute(
+                   i.z + vec4(0.0, i1.z, i2.z, 1.0))
+                 + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+                 + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+        float n_ = 0.142857142857;
+        vec3 ns = n_ * D.wyz - D.xzx;
+        vec4 j  = p - 49.0 * floor(p * ns.z * ns.z);
+        vec4 x_ = floor(j * ns.z);
+        vec4 y_ = floor(j - 7.0 * x_);
+        vec4 x  = x_ * ns.x + ns.yyyy;
+        vec4 y  = y_ * ns.x + ns.yyyy;
+        vec4 h  = 1.0 - abs(x) - abs(y);
+        vec4 b0 = vec4(x.xy, y.xy);
+        vec4 b1 = vec4(x.zw, y.zw);
+        vec4 s0 = floor(b0)*2.0 + 1.0;
+        vec4 s1 = floor(b1)*2.0 + 1.0;
+        vec4 sh = -step(h, vec4(0.0));
+        vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+        vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+        vec3 p0 = vec3(a0.xy, h.x);
+        vec3 p1 = vec3(a0.zw, h.y);
+        vec3 p2 = vec3(a1.xy, h.z);
+        vec3 p3 = vec3(a1.zw, h.w);
+        vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+        p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+        vec4 m = max(0.5 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+        m = m * m;
+        return 105.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+      }
+      // fbm = varias capas de ruido a escalas cada vez más finas (como una costa:
+      // bahías grandes, calas, rocas). 3 capas para lo barato, 5 para lo visible.
+      float fbm3(vec3 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 3; i++){ s += a*snoise(p); p *= 2.03; a *= 0.5; } return s; }
+      float fbm5(vec3 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++){ s += a*snoise(p); p *= 2.03; a *= 0.5; } return s; }
+    `;
+
+    // Uniforms compartidos: el TIEMPO es el mismo objeto para sol y corona.
+    const uTiempo = { value: 0 };
+
+    // ── 1) FOTOSFERA ───────────────────────────────────────────────
+    // (Los colores van en espacio LINEAL: el OutputPass los convierte a sRGB al
+    //  final. Por eso parecen "más oscuros" escritos aquí que en pantalla.)
+    const matSol = new THREE.ShaderMaterial({
+      uniforms: {
+        uTiempo,
+        uIntensidad: { value: SOL.intensidad },
+        uDetalle:    { value: SOL.detalle }
       },
-      undefined,
-      () => {}
-    );
-    const sol = new THREE.Mesh(new THREE.SphereGeometry(RADIO_SOL, 64, 64), matSol);
+      vertexShader: `
+        varying vec3 vPos;      // punto de la esfera unidad (espacio del objeto → gira con el sol)
+        varying vec3 vNormalV;  // normal en espacio de cámara
+        varying vec3 vViewPos;  // posición en espacio de cámara
+        void main() {
+          vPos = normalize(position);
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vViewPos = mv.xyz;
+          vNormalV = normalize(normalMatrix * normal);
+          gl_Position = projectionMatrix * mv;
+        }
+      `,
+      fragmentShader: RUIDO_GLSL + `
+        uniform float uTiempo;
+        uniform float uIntensidad;
+        uniform float uDetalle;
+        varying vec3 vPos;
+        varying vec3 vNormalV;
+        varying vec3 vViewPos;
+        void main() {
+          vec3 p = vPos;
+          float t = uTiempo;
+
+          // mu = coseno entre la normal y la línea de visión:
+          // 1 en el centro del disco, 0 en el borde (limbo)
+          float mu = clamp(dot(normalize(vNormalV), normalize(-vViewPos)), 0.0, 1.0);
+
+          // PLASMA con deformación de dominio (domain warping): el ruido se
+          // muestrea en un sitio desplazado por OTRO ruido → remolinos que
+          // parecen fluir en vez de manchas estáticas.
+          vec3 w = vec3(fbm3(p*1.6 + vec3(0.0, 0.0,  t*0.020)),
+                        fbm3(p*1.6 + vec3(5.2, 1.3, -t*0.017)),
+                        fbm3(p*1.6 + vec3(9.1, 7.7,  t*0.013)));
+          float plasma = fbm5(p*3.2 + w*1.4 + vec3(0.0, t*0.025, 0.0));   // ~[-1, 1]
+
+          // GRANULACIÓN: celdas de convección muy finas
+          float gran = snoise(p*38.0 + vec3(t*0.25));
+
+          // MANCHAS: solo en dos cinturones de latitud (como en el Sol real,
+          // entre ~10° y ~35°; nunca en el ecuador ni en los polos)
+          float lat = abs(p.y);
+          float cinturon = smoothstep(0.12, 0.25, lat) * (1.0 - smoothstep(0.45, 0.62, lat));
+          float m = snoise(p*3.4 + vec3(t*0.006, 0.0, 17.0)) + 0.25*snoise(p*9.0 + 3.0);
+          float penumbra = smoothstep(0.66, 0.76, m) * cinturon;
+          float umbra    = smoothstep(0.80, 0.88, m) * cinturon;
+
+          // COLOR por temperatura: el centro se ve más caliente (más claro)
+          // que el borde, donde miramos capas más altas y frías
+          vec3 cCentro = vec3(1.00, 0.48, 0.15);
+          vec3 cBorde  = vec3(0.85, 0.16, 0.03);
+          vec3 col = mix(cBorde, cCentro, pow(mu, 0.55));
+
+          float brillo = 1.0 + uDetalle * (0.30*plasma + 0.08*gran);
+          // FÁCULAS: zonas brillantes que solo destacan cerca del borde
+          brillo += uDetalle * smoothstep(0.25, 0.65, plasma) * pow(1.0 - mu, 1.5) * 0.9;
+          col *= brillo;
+          col = mix(col, col*0.60, penumbra * uDetalle);   // penumbra: algo más oscura
+          col = mix(col, col*0.22, umbra    * uDetalle);   // umbra: oscura solo en comparación (sigue a ~4000 K)
+
+          // OSCURECIMIENTO DEL LIMBO (ley lineal). u ≈ 0.68 es típico de una
+          // estrella K: más marcado que en el Sol porque es más fría.
+          col *= (1.0 - 0.68*(1.0 - mu)) * uIntensidad;
+
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `
+    });
+    const sol = new THREE.Mesh(new THREE.SphereGeometry(RADIO_SOL, 96, 96), matSol);
     escena.add(sol);
 
-    const haloSol = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: TEX_GLOW, color: 0xffcc88, opacity: 0.3, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
-    }));
-    haloSol.scale.setScalar(RADIO_SOL * 4.5);
-    escena.add(haloSol);
+    // ── 2) CORONA (billboard) ──────────────────────────────────────
+    // Un plano que en cada fotograma copia la orientación de la cámara, así
+    // siempre lo vemos de frente. Dibuja lo que hay FUERA del disco.
+    // Se suma a lo que hay detrás (AdditiveBlending): la luz no tapa, se añade.
+    const EXT_CORONA = 3.0; // el plano llega a 3 radios solares desde el centro
+    const uniCorona = {
+      uTiempo,
+      uK:          { value: 1.0 },          // corrección de perspectiva del borde (ver bucle)
+      uIntensidad: { value: SOL.corona },
+      uExt:        { value: EXT_CORONA }
+    };
+    const corona = new THREE.Mesh(
+      new THREE.PlaneGeometry(RADIO_SOL * 2 * EXT_CORONA, RADIO_SOL * 2 * EXT_CORONA),
+      new THREE.ShaderMaterial({
+        uniforms: uniCorona,
+        vertexShader: `
+          varying vec2 vUv;
+          void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+        `,
+        fragmentShader: RUIDO_GLSL + `
+          uniform float uTiempo;
+          uniform float uK;
+          uniform float uIntensidad;
+          uniform float uExt;
+          varying vec2 vUv;
+          void main() {
+            vec2 c = (vUv - 0.5) * 2.0 * uExt;   // coordenadas en radios solares
+            float rr = length(c);
+            float r  = rr / uK;                  // 1.0 = borde del disco tal como se VE
+            if (r < 0.97) discard;
+            vec2 dir = c / rr;                   // dirección (evita atan → sin costura angular)
+            float h = max(r - 1.0, 0.0);         // altura sobre el limbo
+            float t = uTiempo;
+
+            // a) HALO: una caída corta pegada al borde + otra larga y tenue
+            float halo = 0.55*exp(-h*12.0) + 0.30*exp(-h*2.2);
+
+            // b) SERPENTINAS: estructura radial que cambia despacio
+            float n = snoise(vec3(dir*5.0, t*0.03 + h*0.35));
+            float serp = (0.5 + 0.5*n) * exp(-h*1.8) * 0.22;
+
+            // c) PROTUBERANCIAS: filamentos pegados al limbo, solo en algunas zonas
+            float zona = smoothstep(0.35, 0.80, snoise(vec3(dir*2.2, t*0.015 + 4.0)));
+            float fil  = smoothstep(0.10, 0.75, snoise(vec3(dir*16.0, h*5.0 - t*0.12)));
+            float prom = zona * fil * exp(-h*6.0) * smoothstep(0.0, 0.02, h) * 1.6;
+
+            // d) FULGURACIÓN ocasional: cada ~70 s un chorro que crece hacia
+            //    fuera y se apaga en ~7 s, cada vez en una dirección distinta
+            float ciclo = t * 0.09;
+            float k = floor(ciclo / 6.2831853);
+            float pulso = pow(max(0.0, sin(ciclo)), 14.0);
+            float ang = k * 2.39996;             // ángulo áureo → direcciones bien repartidas
+            float lobulo = pow(max(0.0, dot(dir, vec2(cos(ang), sin(ang)))), 60.0);
+            float fil2 = 0.6 + 0.4*snoise(vec3(dir*25.0, h*3.0 - t*0.4));
+            float erup = pulso * lobulo * fil2 * exp(-h*mix(7.0, 1.4, pulso)) * 3.0;
+
+            vec3 cHalo = vec3(1.0, 0.42, 0.12);
+            vec3 cProm = vec3(1.0, 0.30, 0.06);
+            vec3 col = cHalo*(halo + serp) + cProm*(prom + erup);
+            col *= uIntensidad;
+            col *= 1.0 - smoothstep(uExt*0.77, uExt, rr);  // apagar antes del borde del plano
+            gl_FragColor = vec4(col, 1.0);
+          }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      })
+    );
+    escena.add(corona);
 
     const luzSol = new THREE.PointLight(0xffd9a0, 4, 3000, 0.08);
     escena.add(luzSol);
@@ -226,8 +416,11 @@
             if (visibilidad < 0.01) discard;
             float d = length(gl_PointCoord - vec2(0.5));
             if (d > 0.5) discard;
-            float a = visibilidad * vBrillo * 0.32;      // más tenue y según brillo propio
-            gl_FragColor = vec4(1.0, 0.8, 0.45, a);
+            // Con el bloom, la escena se mezcla en espacio LINEAL y se pasa a sRGB al final:
+            // el mismo naranja (1, .8, .45) se escribe ahora (1, .6, .17), y la opacidad
+            // baja de .32 a .20 para que se vean igual de tenues que antes.
+            float a = visibilidad * vBrillo * 0.20;      // más tenue y según brillo propio
+            gl_FragColor = vec4(1.0, 0.60, 0.17, a);
           }
         `,
         transparent: true,
@@ -336,10 +529,34 @@
 
     function suavizar(t) { return t * t * (3 - 2 * t); } // smoothstep para transiciones
 
+    // ════════════════════════════════════════════════════════════
+    //  POSTPROCESADO: BLOOM (floración de luz)
+    //
+    //  En vez de pintar directo a pantalla, la escena se pinta en una imagen
+    //  intermedia con decimales (HalfFloat), que admite brillos MAYORES que 1.
+    //  El bloom coge solo lo que supera el umbral (el sol), lo difumina y lo
+    //  suma encima. El OutputPass, al final, convierte a sRGB para el monitor.
+    //  Por eso el sol "quema" y derrama luz, y el fondo (que nunca pasa de 1) no.
+    // ════════════════════════════════════════════════════════════
+    const composer = new EffectComposer(renderer);
+    // Antialiasing: al pintar en imagen intermedia se pierde el del renderer;
+    // se recupera pidiendo 4 muestras (MSAA) a esas imágenes.
+    composer.renderTarget1.samples = 4;
+    composer.renderTarget2.samples = 4;
+    composer.addPass(new RenderPass(escena, camara));
+    const bloom = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      BLOOM.fuerza, BLOOM.radio, BLOOM.umbral
+    );
+    composer.addPass(bloom);
+    composer.addPass(new OutputPass());
+
+    const reloj = new THREE.Clock();
+
     function animar() {
       requestAnimationFrame(animar);
+      uTiempo.value += Math.min(reloj.getDelta(), 0.1) * SOL.velocidad; // tope: si la pestaña duerme, no da un salto
       sol.rotation.y -= 0.0008; // mismo sentido que las órbitas
-      haloSol.position.copy(sol.position);
 
       planetas.forEach((p) => {
         p.angulo += p.velocidad;
@@ -404,7 +621,17 @@
         controls.update();
       }
 
-      renderer.render(escena, camara);
+      // ─── Corona: siempre de frente a la cámara ───
+      // (va DESPUÉS de mover la cámara, para usar su orientación de este fotograma)
+      corona.position.copy(sol.position);
+      corona.quaternion.copy(camara.quaternion);
+      // Una esfera vista en perspectiva se ve un poco MAYOR que su radio real
+      // (vemos su contorno tangente, no su ecuador). uK corrige eso para que el
+      // halo empiece justo en el borde visible: D / √(D² − R²).
+      const D = camara.position.distanceTo(sol.position);
+      uniCorona.uK.value = D / Math.sqrt(Math.max(D * D - RADIO_SOL * RADIO_SOL, 1e-3));
+
+      composer.render();
     }
     animar();
 
@@ -415,6 +642,7 @@
       camara.aspect = window.innerWidth / window.innerHeight;
       camara.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight); // también reajusta el bloom
       encajarFondo();
     });
   </script>
