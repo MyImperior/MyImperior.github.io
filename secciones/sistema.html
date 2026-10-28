@@ -137,8 +137,9 @@
       grano:         1.0,       // contraste de la granulación al acercarse (0 = sin grano)
       granoDesde:    30,        // distancia a la que el grano empieza a verse
       granoPleno:    18,        // distancia a la que se ve del todo (la cámara llega a 12)
-      manchas:       1.0,       // contraste de las manchas (1 = real)
-      numGrupos:     3,         // grupos de manchas (líder + seguidora + poro)
+      manchas:       1.0,       // contraste de las manchas de cerca (1 = real)
+      manchasLejos:  0.4,       // fracción de ese contraste que queda de lejos (se atenúan con el grano)
+      numGrupos:     5,         // grupos de manchas (líder + seguidora + poro), máximo 6
       halo:          1.0,       // brillo del halo (gradiente suave, el de la primera versión)
       espiculas:     1.0,       // chorros finos de plasma en el borde (0 = borde limpio)
       protuberancias: 1.0,      // brillo de las protuberancias del borde (0 = ninguna)
@@ -207,7 +208,7 @@
     // ── MANCHAS: posiciones reales ─────────────────────────────────
     // Grupos BIPOLARES: líder grande + seguidora menor (detrás en longitud y
     // algo más hacia el polo: ley de Joy) + un poro. Latitudes de ~8° a ~30°.
-    const MAX_MANCHAS = 12;
+    const MAX_MANCHAS = 18;
     const manchas = [];
     function dirLatLon(lat, lon) {
       return new THREE.Vector3(Math.cos(lat) * Math.cos(lon), Math.sin(lat), Math.cos(lat) * Math.sin(lon));
@@ -216,8 +217,8 @@
       const hem = Math.random() < 0.5 ? 1 : -1;
       const lat = hem * (8 + Math.random() * 22) * Math.PI / 180;
       const lon = g === 0 ? Math.PI / 2 + 0.25 : Math.random() * Math.PI * 2; // el 1er grupo, de cara al llegar
-      const tam = 0.07 + Math.random() * 0.05;
-      const sep = 0.14 + Math.random() * 0.10;
+      const tam = 0.0525 + Math.random() * 0.0375; // 25 % menores que antes
+      const sep = 0.12 + Math.random() * 0.08;
       const lider     = dirLatLon(lat, lon);
       const seguidora = dirLatLon(lat + hem * 0.03, lon - sep);
       const poro      = dirLatLon(lat + hem * 0.015 + (Math.random() - 0.5) * 0.05, lon - sep * (0.4 + Math.random() * 0.3));
@@ -239,6 +240,7 @@
         uOscur:    { value: SOL.oscurecimiento },
         uContGrano:{ value: SOL.grano },
         uManchasK: { value: SOL.manchas },
+        uManchasL: { value: SOL.manchasLejos },
         uManchas:  { value: manchas }
       },
       vertexShader: `
@@ -261,6 +263,7 @@
         uniform float uOscur;
         uniform float uContGrano;
         uniform float uManchasK;
+        uniform float uManchasL;
         uniform vec4  uManchas[${MAX_MANCHAS}];
         varying vec3 vPos;
         varying vec3 vNormalV;
@@ -312,7 +315,8 @@
           float pen = 0.78 + (0.03 + 0.07 * uGrano) * fil;
           float b = mix(1.0, pen, penumbra);
           b = mix(b, 0.25, umbra);
-          return mix(1.0, b, uManchasK);
+          // de lejos, a la vez que desaparece el grano, la mancha pierde contraste
+          return mix(1.0, b, uManchasK * mix(uManchasL, 1.0, uGrano));
         }
 
         void main() {
@@ -503,10 +507,10 @@
       return new THREE.CanvasTexture(c);
     }
     const haloSol = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: texturaGlow(), color: 0xffcc88, opacity: 0.3 * SOL.halo,
+      map: texturaGlow(), color: 0xffcc88, opacity: 0.345 * SOL.halo, // 0.3 + 15 %
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
     }));
-    haloSol.scale.setScalar(RADIO_SOL * 4.5);
+    haloSol.scale.setScalar(RADIO_SOL * 5.85); // 4.5 + 30 %
     escena.add(haloSol);
 
     const luzSol = new THREE.PointLight(0xffd9a0, 4, 3000, 0.08);
