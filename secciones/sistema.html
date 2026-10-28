@@ -113,29 +113,35 @@
     );
 
     // ════════════════════════════════════════════════════════════
-    //  ESTRELLA K — PROCEDURAL (shader), sin imagen.
+    //  ESTRELLA K — "vista con filtro solar" (luz visible)
     //
-    //  El ruido se calcula a partir de la POSICIÓN 3D de cada punto de la
-    //  esfera, no de una imagen envuelta → sin costura ni polos. Y como
-    //  depende del tiempo, la superficie cambia continuamente.
+    //  Concepto acordado: lo que vería un observador con un filtro solar,
+    //  sin deslumbramiento. Un disco TRANQUILO:
+    //   - oscurecimiento del borde (lo que lo hace leerse como bola de gas)
+    //   - granulación: invisible de lejos (cada gránulo es menor que un
+    //     píxel); aparece y se ve hervir al ACERCARSE
+    //   - manchas de contraste real (pardas, no negras) y fáculas junto al borde
+    //   - borde nítido
+    //  Licencias artísticas: halo cálido alrededor y alguna protuberancia en
+    //  el borde que aparece y se apaga despacio.
     //
-    //  Los colores que se escriben aquí son los que se VEN en pantalla
-    //  (no hay conversión posterior): lo que pones es lo que sale.
+    //  Los colores que se escriben aquí son los que se VEN en pantalla.
     // ════════════════════════════════════════════════════════════
     const RADIO_SOL = 6.0;
 
     // ── MANDOS DEL SOL (ajustar a ojo) ─────────────────────────────
-    // Referencia visual: el Sol fotografiado por el satélite SDO de la NASA en
-    // ultravioleta (304 Å, color falso naranja). Muestra la CROMOSFERA: una red
-    // de celdas de bordes brillantes, regiones activas blancas, filamentos
-    // oscuros y un borde peludo con protuberancias.
     const SOL = {
-      brillo:      1.0,  // brillo general del disco
-      contraste:   1.0,  // 0.6 = suave · 1.4 = muy marcado (red, regiones activas, filamentos)
-      saturacion:  0.8,  // 1 = naranja intenso como la foto del SDO · menos = más apagado
-      velocidad:   1.0,  // ritmo al que cambia la superficie (no afecta a la rotación)
-      cromosfera:  1.0,  // borde: 0 = limpio · 1 = espículas y protuberancias
-      numGrupos:   4     // regiones activas (cada una con un grupo de manchas: líder + seguidora + poro)
+      colorCentro:   '#ffdca2', // color en el centro del disco
+      colorBorde:    '#cf5a20', // color hacia el borde (capas más altas y frías)
+      oscurecimiento: 0.75,     // oscurecimiento del borde (0.75 ≈ estrella K real; el Sol ≈ 0.6)
+      grano:         1.0,       // contraste de la granulación al acercarse (0 = sin grano)
+      granoDesde:    30,        // distancia a la que el grano empieza a verse
+      granoPleno:    18,        // distancia a la que se ve del todo (la cámara llega a 12)
+      manchas:       1.0,       // contraste de las manchas (1 = real)
+      numGrupos:     3,         // grupos de manchas (líder + seguidora + poro)
+      halo:          1.0,       // brillo del halo
+      protuberancias: 1.0,      // brillo de las protuberancias del borde (0 = ninguna)
+      velocidad:     1.0        // ritmo al que hierve el grano y evolucionan las cosas
     };
 
     // Ruido simplex 3D (Ian McEwan / Ashima Arts, licencia MIT).
@@ -195,23 +201,22 @@
 
     // Uniforms compartidos
     const uTiempo = { value: 0 };
+    const uGrano  = { value: 0 }; // 0 lejos · 1 cerca (lo calcula el bucle según la distancia)
 
-    // ── MANCHAS: posiciones reales, no ruido ───────────────────────
-    // En el Sol las manchas salen en GRUPOS BIPOLARES: una "líder" grande y
-    // una "seguidora" algo menor, detrás en longitud y un poco más hacia el
-    // polo (ley de Joy), siempre en latitudes de ~8° a ~30°.
-    // Cada mancha = vec4(dirección x, y, z, tamaño angular en radianes).
+    // ── MANCHAS: posiciones reales ─────────────────────────────────
+    // Grupos BIPOLARES: líder grande + seguidora menor (detrás en longitud y
+    // algo más hacia el polo: ley de Joy) + un poro. Latitudes de ~8° a ~30°.
     const MAX_MANCHAS = 12;
     const manchas = [];
     function dirLatLon(lat, lon) {
       return new THREE.Vector3(Math.cos(lat) * Math.cos(lon), Math.sin(lat), Math.cos(lat) * Math.sin(lon));
     }
     for (let g = 0; g < Math.min(SOL.numGrupos, MAX_MANCHAS / 3); g++) {
-      const hem = Math.random() < 0.5 ? 1 : -1;                     // hemisferio norte o sur
+      const hem = Math.random() < 0.5 ? 1 : -1;
       const lat = hem * (8 + Math.random() * 22) * Math.PI / 180;
       const lon = g === 0 ? Math.PI / 2 + 0.25 : Math.random() * Math.PI * 2; // el 1er grupo, de cara al llegar
       const tam = 0.07 + Math.random() * 0.05;
-      const sep = 0.14 + Math.random() * 0.10;                      // separación líder–seguidora
+      const sep = 0.14 + Math.random() * 0.10;
       const lider     = dirLatLon(lat, lon);
       const seguidora = dirLatLon(lat + hem * 0.03, lon - sep);
       const poro      = dirLatLon(lat + hem * 0.015 + (Math.random() - 0.5) * 0.05, lon - sep * (0.4 + Math.random() * 0.3));
@@ -219,15 +224,21 @@
       manchas.push(new THREE.Vector4(seguidora.x, seguidora.y, seguidora.z, tam * (0.5 + Math.random() * 0.2)));
       manchas.push(new THREE.Vector4(poro.x, poro.y, poro.z, tam * 0.22));
     }
-    while (manchas.length < MAX_MANCHAS) manchas.push(new THREE.Vector4(0, 1, 0, 0)); // huecos vacíos (tamaño 0)
+    while (manchas.length < MAX_MANCHAS) manchas.push(new THREE.Vector4(0, 1, 0, 0));
 
+    // Leer el hex TAL CUAL (THREE.Color lo convertiría a espacio lineal y saldría oscuro)
+    function vec3DeHex(hex) { const n = parseInt(hex.slice(1), 16); return new THREE.Vector3((n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255); }
+
+    // ── 1) FOTOSFERA ───────────────────────────────────────────────
     const matSol = new THREE.ShaderMaterial({
       uniforms: {
-        uTiempo,
-        uBrillo:     { value: SOL.brillo },
-        uContraste:  { value: SOL.contraste },
-        uSaturacion: { value: SOL.saturacion },
-        uManchas:    { value: manchas }
+        uTiempo, uGrano,
+        uCentro:   { value: vec3DeHex(SOL.colorCentro) },
+        uBorde:    { value: vec3DeHex(SOL.colorBorde) },
+        uOscur:    { value: SOL.oscurecimiento },
+        uContGrano:{ value: SOL.grano },
+        uManchasK: { value: SOL.manchas },
+        uManchas:  { value: manchas }
       },
       vertexShader: `
         varying vec3 vPos;      // punto de la esfera unidad (espacio del objeto → gira con el sol)
@@ -243,17 +254,21 @@
       `,
       fragmentShader: RUIDO_GLSL + `
         uniform float uTiempo;
-        uniform float uBrillo;
-        uniform float uContraste;
-        uniform float uSaturacion;
+        uniform float uGrano;
+        uniform vec3  uCentro;
+        uniform vec3  uBorde;
+        uniform float uOscur;
+        uniform float uContGrano;
+        uniform float uManchasK;
         uniform vec4  uManchas[${MAX_MANCHAS}];
         varying vec3 vPos;
         varying vec3 vNormalV;
         varying vec3 vViewPos;
 
-        // ── Ruido CELULAR (Worley): reparte puntos al azar y mide la distancia
-        // al más cercano (F1) y al segundo (F2). Donde F2−F1 es casi 0 estamos en
-        // la FRONTERA entre dos celdas → así salen las celdas de bordes brillantes.
+        // GRANULACIÓN = celdas de convección: gas caliente que sube por el
+        // centro de cada celda (claro) y baja ya frío por los bordes (calles
+        // oscuras). Se dibuja con ruido CELULAR (Worley): distancia al punto
+        // más cercano (F1) y al segundo (F2); F2−F1 ≈ 0 en la frontera.
         vec3 hash3(vec3 p) {
           p = vec3(dot(p, vec3(127.1, 311.7, 74.7)),
                    dot(p, vec3(269.5, 183.3, 246.1)),
@@ -267,46 +282,36 @@
           for (int y = -1; y <= 1; y++)
           for (int x = -1; x <= 1; x++) {
             vec3 g = vec3(float(x), float(y), float(z));
-            vec3 o = 0.5 + 0.4 * sin(t + 6.2831 * hash3(i + g)); // los puntos se mueven → las celdas cambian
+            vec3 o = 0.5 + 0.4 * sin(t + 6.2831 * hash3(i + g)); // los centros se mueven → las celdas hierven
             float d = length(g + o - f);
             if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) { f2 = d; }
           }
           return vec2(f1, f2);
         }
 
-        // Paleta sacada de la foto del SDO: de rojo casi negro a blanco cálido
-        vec3 rampa(float v) {
-          vec3 c0 = vec3(0.18, 0.03, 0.01);
-          vec3 c1 = vec3(0.60, 0.16, 0.03);
-          vec3 c2 = vec3(0.93, 0.42, 0.08);
-          vec3 c3 = vec3(1.00, 0.68, 0.28);
-          vec3 c4 = vec3(1.00, 0.93, 0.78);
-          v = clamp(v, 0.0, 1.0) * 4.0;
-          if (v < 1.0) return mix(c0, c1, v);
-          if (v < 2.0) return mix(c1, c2, v - 1.0);
-          if (v < 3.0) return mix(c2, c3, v - 2.0);
-          return mix(c3, c4, v - 3.0);
-        }
-
-        // Una mancha: umbra (núcleo oscuro) + penumbra de filamentos radiales
-        // (el campo magnético saliendo casi en horizontal desde el núcleo).
+        // Mancha: umbra + penumbra. Contraste REAL: la umbra emite ~25 % y la
+        // penumbra ~78 % de la luz de alrededor (en fotos salen negras solo
+        // porque la cámara se ajusta al disco brillante).
         float sombraMancha(vec3 p, vec4 m, float idx, float t) {
           vec3 c = m.xyz;
-          float s = m.w * (0.9 + 0.1 * sin(t * 0.07 + idx * 1.7));
+          float s = m.w * (0.9 + 0.1 * sin(t * 0.05 + idx * 1.7));
           if (s <= 0.0 || dot(p, c) < 0.9) return 1.0;
           vec3 u = normalize(cross(c, abs(c.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
           vec3 v = cross(c, u);
           vec2 q = vec2(dot(p, u), dot(p, v));
           float d = length(q);
           vec2 dir = q / max(d, 1e-5);
-          float r = s * (1.0 + 0.15 * snoise(vec3(dir * 1.2, idx * 3.1 + t * 0.02)));
+          float r = s * (1.0 + 0.15 * snoise(vec3(dir * 1.2, idx * 3.1)));
           float x = d / r;
           if (x > 1.05) return 1.0;
-          float umbra    = 1.0 - smoothstep(0.36, 0.42, x * (1.0 + 0.12 * snoise(vec3(dir * 3.0, idx))));
-          float penumbra = 1.0 - smoothstep(0.80, 1.0, x);
-          float fil = snoise(vec3(dir * 16.0, x * 0.5 + idx * 7.0 + t * 0.04));
-          float b = mix(1.0, 0.56 + 0.22 * fil, penumbra);
-          return mix(b, 0.07, umbra);
+          float umbra    = 1.0 - smoothstep(0.34, 0.44, x * (1.0 + 0.12 * snoise(vec3(dir * 3.0, idx))));
+          float penumbra = 1.0 - smoothstep(0.82, 1.0, x);
+          // filamentos de la penumbra: casi invisibles de lejos, se ven al acercarse
+          float fil = snoise(vec3(dir * 16.0, x * 0.5 + idx * 7.0 + t * 0.02));
+          float pen = 0.78 + (0.03 + 0.07 * uGrano) * fil;
+          float b = mix(1.0, pen, penumbra);
+          b = mix(b, 0.25, umbra);
+          return mix(1.0, b, uManchasK);
         }
 
         void main() {
@@ -314,54 +319,41 @@
           float t = uTiempo;
           float mu = clamp(dot(normalize(vNormalV), normalize(-vViewPos)), 0.0, 1.0); // 1 centro · 0 borde
 
-          // Deformación suave: las celdas no deben salir regulares
-          vec3 w = vec3(fbm3(p*2.0 + vec3(0.0, 0.0,  t*0.05)),
-                        fbm3(p*2.0 + vec3(5.2, 1.3, -t*0.04)),
-                        fbm3(p*2.0 + vec3(9.1, 7.7,  t*0.035)));
+          // Color de base: más caliente (claro) en el centro, más frío (rojizo) al borde
+          vec3 col = mix(uBorde, uCentro, pow(mu, 0.7));
 
-          // Temblor fino: hace que los bordes de las celdas no sean líneas limpias
-          vec3 temblor = vec3(snoise(p*22.0 + vec3(t*0.2)), snoise(p*22.0 + 11.0), snoise(p*22.0 + 23.0 - vec3(t*0.15)));
-          // 2) MOTEADO fino encima de todo
-          float mot = 0.5 + 0.5 * fbm3(p*60.0 + w*2.0 + vec3(t*0.3));
-          // 1) RED: celdas (supergránulos) con los bordes brillantes, en dos tamaños,
-          //    y ROTA en grumos (en la foto no hay líneas continuas, hay cuentas brillantes)
-          vec2 celG = worley(p*13.0 + w*1.6 + temblor*0.25, t*0.20);
-          vec2 celP = worley(p*32.0 + w*3.0 + temblor*0.35, t*0.35);
-          float redG = 1.0 - smoothstep(0.0, 0.14, celG.y - celG.x);
-          float redP = 1.0 - smoothstep(0.0, 0.10, celP.y - celP.x);
-          float grumos = smoothstep(0.35, 0.75, 0.5 + 0.5 * snoise(p*45.0 + w*2.0 + vec3(t*0.4)));
-          float red = max(redG * 0.8, redP * 0.6) * (0.25 + 0.75 * grumos);
-          // 3) ZONAS grandes algo más claras u oscuras
-          float zona = fbm3(p*3.0 + w*0.7 + vec3(t*0.03));
-          // 4) FILAMENTOS: líneas oscuras finas y sinuosas (plasma frío suspendido)
-          float cresta = 1.0 - abs(snoise(p*2.6 + w*1.3 + vec3(31.0, 0.0, t*0.01)));
-          float filam = smoothstep(0.92, 0.985, cresta) * smoothstep(0.1, 0.5, snoise(p*1.7 + 50.0));
-          // 5) REGIONES ACTIVAS: zonas que brillan alrededor de cada grupo de manchas
+          // Variaciones muy suaves a gran escala (supergranulación): vida, sin "líquido"
+          col *= 1.0 + 0.03 * snoise(p * 6.0 + vec3(0.0, 0.0, t * 0.01));
+
+          // GRANULACIÓN: solo se calcula de cerca (si no, ahorra el trabajo)
+          if (uGrano > 0.01) {
+            vec3 q = p * 45.0 + 0.2 * vec3(snoise(p * 50.0 + vec3(t * 0.1)));  // bordes irregulares, no polígonos
+            vec2 c = worley(q, t * 0.5);
+            float centro = 1.0 - smoothstep(0.0, 0.9, c.x);           // brillo: máximo en el centro, cae hacia fuera
+            float calle  = 1.0 - smoothstep(0.0, 0.45, c.y - c.x);    // 1 en las calles entre gránulos
+            float g = 0.92 + 0.12 * centro - 0.07 * calle;
+            vec3 tinte = mix(vec3(1.0), vec3(0.92, 0.80, 0.70), calle); // las calles, más frías → más rojizas
+            col *= mix(vec3(1.0), g * tinte, uGrano * uContGrano);
+          }
+
+          // MANCHAS y REGIONES ACTIVAS (para las fáculas)
+          float sombra = 1.0;
           float act = 0.0;
           for (int i = 0; i < ${MAX_MANCHAS}; i++) {
             vec4 m = uManchas[i];
-            if (m.w <= 0.0) continue;
-            act = max(act, exp(-pow(length(p - m.xyz) / (m.w * 3.2), 2.0)));
+            sombra = min(sombra, sombraMancha(p, m, float(i), t));
+            if (m.w > 0.0) act = max(act, exp(-pow(length(p - m.xyz) / (m.w * 3.5), 2.0)));
           }
+          // lo oscuro de una mancha tira a pardo-rojizo (está más fría), no a gris
+          col *= sombra * mix(vec3(0.95, 0.55, 0.40), vec3(1.0), smoothstep(0.2, 0.9, sombra));
 
-          float v = 0.42 + 0.25*red*(0.5 + mot) + 0.20*(mot - 0.5) + 0.12*zona;
-          v += act * (0.28 + 0.55*red*mot);   // regiones activas: manchas claras casi blancas
-          v -= 0.14 * filam;
-          v = 0.5 + (v - 0.5) * uContraste;
-          v -= 0.18 * pow(1.0 - mu, 2.0);   // el borde, algo más rojo y oscuro (poco: en UV casi no se oscurece)
+          // FÁCULAS: motas claras alrededor de las regiones activas, visibles solo
+          // cerca del borde (en el centro del disco no contrastan)
+          float motas = smoothstep(0.15, 0.75, 0.5 + 0.5 * snoise(p * 28.0 + vec3(t * 0.03)));
+          col *= 1.0 + act * motas * pow(1.0 - mu, 1.3) * 0.45;
 
-          vec3 col = rampa(v) * uBrillo;
-
-          // MANCHAS (lo oscuro tira a rojo-pardo, no a gris)
-          float sombra = 1.0;
-          for (int i = 0; i < ${MAX_MANCHAS}; i++) {
-            sombra = min(sombra, sombraMancha(p, uManchas[i], float(i), t));
-          }
-          col *= sombra * mix(vec3(1.0, 0.62, 0.45), vec3(1.0), smoothstep(0.1, 0.9, sombra));
-
-          // SATURACIÓN: 1 = como la foto · menos = más apagado
-          float l = dot(col, vec3(0.299, 0.587, 0.114));
-          col = mix(vec3(l), col, uSaturacion);
+          // OSCURECIMIENTO DEL BORDE
+          col *= 1.0 - uOscur * (1.0 - mu);
 
           gl_FragColor = vec4(min(col, vec3(1.0)), 1.0);
         }
@@ -370,92 +362,94 @@
     const sol = new THREE.Mesh(new THREE.SphereGeometry(RADIO_SOL, 128, 128), matSol);
     escena.add(sol);
 
-    // ── CROMOSFERA: el borde peludo ────────────────────────────────
-    // Una cáscara un 8 % mayor que el sol. Solo se pinta en el anillo que asoma
-    // POR FUERA del disco. Ahí, en cada dirección alrededor del sol, el ruido
-    // decide hasta qué altura llega el plasma:
-    //  - espículas: muchos "pelos" finos que suben y bajan deprisa
-    //  - protuberancias: pocas lenguas más altas, ancladas a la superficie
-    const ESCALA_CROMO = 1.08;
-    const MU_LIMBO = Math.sqrt(1 - 1 / (ESCALA_CROMO * ESCALA_CROMO)); // donde la cáscara toca el borde del disco
-    const cromosfera = new THREE.Mesh(
-      new THREE.SphereGeometry(RADIO_SOL * ESCALA_CROMO, 128, 128),
+    // ── 2) HALO + PROTUBERANCIAS (plano que siempre mira a la cámara) ──
+    // Halo: el de la primera versión (resplandor cálido + rayos muy suaves),
+    // ahora sin bloom, así que no quema nada.
+    // Protuberancias: arcos de plasma en el borde. Hay dos "turnos" que se
+    // repiten con periodos distintos (60 s y 85 s): en cada turno sale una en
+    // un punto al azar del borde, aparece en ~12 s, se mantiene y se apaga en
+    // ~12 s; luego hay una pausa. A veces no hay ninguna, a veces coinciden dos.
+    const EXT_CORONA = 3.0; // el plano llega a 3 radios solares
+    const uniCorona = {
+      uTiempo,
+      uK:      { value: 1.0 },   // corrección de perspectiva del borde (ver bucle)
+      uHalo:   { value: SOL.halo },
+      uProt:   { value: SOL.protuberancias },
+      uExt:    { value: EXT_CORONA }
+    };
+    const corona = new THREE.Mesh(
+      new THREE.PlaneGeometry(RADIO_SOL * 2 * EXT_CORONA, RADIO_SOL * 2 * EXT_CORONA),
       new THREE.ShaderMaterial({
-        uniforms: { uTiempo, uFuerza: { value: SOL.cromosfera }, uSaturacion: { value: SOL.saturacion } },
+        uniforms: uniCorona,
         vertexShader: `
-          varying vec3 vPos;
-          varying vec3 vNormalV;
-          varying vec3 vViewPos;
-          varying vec3 vCentroV;   // centro del sol en espacio de cámara
-          void main() {
-            vPos = normalize(position);
-            vec4 mv = modelViewMatrix * vec4(position, 1.0);
-            vViewPos = mv.xyz;
-            vCentroV = (modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-            vNormalV = normalize(normalMatrix * normal);
-            gl_Position = projectionMatrix * mv;
-          }
+          varying vec2 vUv;
+          void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
         `,
         fragmentShader: RUIDO_GLSL + `
           uniform float uTiempo;
-          uniform float uFuerza;
-          uniform float uSaturacion;
-          varying vec3 vPos;
-          varying vec3 vNormalV;
-          varying vec3 vViewPos;
-          varying vec3 vCentroV;
+          uniform float uK;
+          uniform float uHalo;
+          uniform float uProt;
+          uniform float uExt;
+          varying vec2 vUv;
+
+          float azar(float x) { return fract(sin(x * 127.1 + 31.7) * 43758.5453); }
+
+          // Un arco de plasma. h = altura sobre el borde (en radios solares).
+          float protuberancia(vec2 dir, float h, float t, float semilla, float periodo) {
+            float ciclo = t / periodo + semilla;
+            float k = floor(ciclo);
+            float fase = fract(ciclo);
+            // aparece (0→0.2), se mantiene, se apaga (0.4→0.6), y pausa hasta el siguiente
+            float env = smoothstep(0.0, 0.2, fase) * (1.0 - smoothstep(0.4, 0.6, fase));
+            if (env <= 0.0) return 0.0;
+            float th0   = azar(k + semilla * 13.0) * 6.2831;             // dónde sale
+            float ancho = 0.08 + 0.10 * azar(k * 1.7 + semilla);         // anchura de la base (rad)
+            float alto  = (0.05 + 0.09 * azar(k * 2.3 + semilla))        // altura (radios solares)
+                        * (0.75 + 0.25 * smoothstep(0.0, 0.3, fase));    // crece un poco al aparecer
+            float th = atan(dir.y, dir.x);
+            float u = atan(sin(th - th0), cos(th - th0)) / ancho;        // -1..1 a lo largo de la base
+            if (abs(u) > 1.2) return 0.0;
+            float arco = alto * sqrt(max(0.0, 1.0 - u * u))              // forma de arco...
+                       * (1.0 + 0.25 * snoise(vec3(dir * 6.0, t * 0.02 + semilla))); // ...irregular
+            float n = snoise(vec3(dir * 18.0, h * 6.0 - t * 0.06 + semilla * 10.0));
+            float grosor = 0.012 + 0.008 * n;
+            float hebra = 1.0 - smoothstep(grosor * 0.4, grosor, abs(h - arco)); // el arco en sí
+            // plasma colgando bajo el arco, en fibras casi verticales
+            float fibras = 0.5 + 0.5 * snoise(vec3(dir * 45.0, h * 3.0 - t * 0.04 + semilla * 7.0));
+            float bajo = (1.0 - smoothstep(arco - 0.01, arco, h)) * (0.3 + 0.7 * fibras) * (1.0 - smoothstep(0.6, 1.0, abs(u)));
+            return max(hebra, bajo * fibras * 0.35) * env;   // relleno tenue y fibroso, no una cáscara
+          }
+
           void main() {
-            float mu = clamp(dot(normalize(vNormalV), normalize(-vViewPos)), 0.0, 1.0);
-            const float MU_LIMBO = ${MU_LIMBO.toFixed(4)};
-            if (mu > MU_LIMBO + 0.01) discard;                // dentro del disco: nada
-            float altura = clamp(1.0 - mu / MU_LIMBO, 0.0, 1.0); // 0 pegado al borde · 1 lo más alto
+            vec2 c = (vUv - 0.5) * 2.0 * uExt;   // coordenadas en radios solares
+            float rr = length(c);
+            float r  = rr / uK;                  // 1.0 = borde del disco tal como se VE
+            if (r < 0.995) discard;
+            vec2 dir = c / rr;
+            float h = r - 1.0;
             float t = uTiempo;
 
-            // dirección alrededor del disco, tal como se ve en pantalla
-            vec2 dir = normalize(vViewPos.xy - vCentroV.xy);
+            // HALO (primera versión): caída corta + caída larga + rayos suaves
+            float halo = 0.55 * exp(-h * 12.0) + 0.30 * exp(-h * 2.2);
+            float rayos = (0.5 + 0.5 * snoise(vec3(dir * 5.0, t * 0.03 + h * 0.35))) * exp(-h * 1.8) * 0.22;
+            vec3 col = vec3(1.0, 0.66, 0.36) * (halo + rayos) * uHalo;
 
-            // ESPÍCULAS: cada dirección tiene su altura → pelos finos verticales
-            float esp = 0.5 + 0.5 * snoise(vec3(dir * 70.0, t * 0.5));
-            float alcance = (0.18 + 0.30 * esp) * uFuerza;
+            // PROTUBERANCIAS
+            float pr = max(protuberancia(dir, h, t, 0.0,  60.0),
+                           protuberancia(dir, h, t, 0.37, 85.0));
+            col += vec3(1.0, 0.45, 0.22) * pr * 0.7 * uProt;
 
-            // PROTUBERANCIAS: pocas, ancladas a la superficie (giran con el sol)
-            float zona = smoothstep(0.70, 0.95, snoise(vPos * 3.0 + vec3(t * 0.02)));
-            float estructura = 0.5 + 0.5 * snoise(vec3(dir * 30.0, altura * 4.0 - t * 0.3));
-            alcance = max(alcance, zona * (0.55 + 0.45 * estructura) * uFuerza);
-
-            float a = 1.0 - smoothstep(alcance * 0.4, alcance, altura); // se desvanece al subir
-            vec3 col = mix(vec3(0.93, 0.45, 0.12), vec3(0.55, 0.10, 0.02), altura);
-            float l = dot(col, vec3(0.299, 0.587, 0.114));
-            col = mix(vec3(l), col, uSaturacion);
-            gl_FragColor = vec4(col, a * 0.9);
+            col *= 1.0 - smoothstep(uExt * 0.77, uExt, rr);  // apagar antes del borde del plano
+            gl_FragColor = vec4(col, 1.0);
           }
         `,
         transparent: true,
-        depthWrite: false
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
       })
     );
-    sol.add(cromosfera); // hija del sol: gira con él
-
-    // ── HALO ─────────────────────────────────────────
-    function texturaGlow() {
-      const c = document.createElement('canvas');
-      c.width = c.height = 64;
-      const g = c.getContext('2d');
-      const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-      grad.addColorStop(0.0, 'rgba(255,255,255,1)');
-      grad.addColorStop(0.3, 'rgba(255,255,255,0.6)');
-      grad.addColorStop(1.0, 'rgba(255,255,255,0)');
-      g.fillStyle = grad;
-      g.fillRect(0, 0, 64, 64);
-      return new THREE.CanvasTexture(c);
-    }
-    const haloSol = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: texturaGlow(), color: 0xff3a10, opacity: 0.45, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
-    }));
-    haloSol.scale.setScalar(RADIO_SOL * 3.4); // resplandor rojo oscuro pegado al disco, como en la foto
-    haloSol.renderOrder = -1; // primero el halo, luego el sol encima (su borde se funde con él)
-    escena.add(haloSol);
-
+    escena.add(corona);
 
     const luzSol = new THREE.PointLight(0xffd9a0, 4, 3000, 0.08);
     escena.add(luzSol);
@@ -633,7 +627,6 @@
       requestAnimationFrame(animar);
       uTiempo.value += Math.min(reloj.getDelta(), 0.1) * SOL.velocidad; // tope: si la pestaña duerme, no da un salto
       sol.rotation.y -= 0.0008; // mismo sentido que las órbitas
-      haloSol.position.copy(sol.position);
 
       planetas.forEach((p) => {
         p.angulo += p.velocidad;
@@ -697,6 +690,16 @@
         controls.enabled = true;                        // vista general libre
         controls.update();
       }
+
+      // ─── Corona: de frente a la cámara (después de mover la cámara) ───
+      corona.position.copy(sol.position);
+      corona.quaternion.copy(camara.quaternion);
+      // Una esfera vista en perspectiva se ve algo MAYOR que su radio (vemos su
+      // contorno tangente): uK = D / √(D² − R²) hace que el halo empiece justo en el borde.
+      const D = camara.position.distanceTo(sol.position);
+      uniCorona.uK.value = D / Math.sqrt(Math.max(D * D - RADIO_SOL * RADIO_SOL, 1e-3));
+      // ─── Grano: aparece al acercarse ───
+      uGrano.value = 1 - THREE.MathUtils.smoothstep(D, SOL.granoPleno, SOL.granoDesde);
 
       renderer.render(escena, camara);
     }
