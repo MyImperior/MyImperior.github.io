@@ -593,6 +593,7 @@
     //  incl    inclinación de la órbita (grados)
     //  color   color del punto visto de lejos
     //  luces   nº de luces de ciudad (0 = sin superficie habitada)
+    //  hibrido true = imagen sin costura (*-sc.png) + casquetes polares proyectados
     //  anclado anclaje por marea. Con estrella K sólo los interiores
     //          suelen anclarse; los de la zona habitable y exteriores, no.
     // ════════════════════════════════════════════════════════════
@@ -601,11 +602,48 @@
       { tex: '2-desertica.png', r: 0.45, dist: 16, incl: 0,  color: 0xc88a4a, luces: 120, anclado: true  }, // desértico, caliente y seco
       { tex: '8-roca.png',      r: 0.30, dist: 20, incl: 14, color: 0x8a7f72, luces: 60,  anclado: false }, // rocoso desplazado (órbita inclinada)
       { tex: '1-islas.png',     r: 0.50, dist: 26, incl: 0,  color: 0x6fae7a, luces: 650, anclado: false }, // archipiélagos — zona habitable
-      { tex: '4-templado.png',  r: 0.55, dist: 31, incl: 0,  color: 0x7bbf8f, luces: 550, anclado: false }, // templado — zona habitable
+      { tex: '4-templado-sc.png', hibrido: true, r: 0.55, dist: 31, incl: 0,  color: 0x7bbf8f, luces: 550, anclado: false }, // templado — zona habitable
       { tex: '7-estepa.png',    r: 0.45, dist: 38, incl: 0,  color: 0x9fae73, luces: 150, anclado: false }, // estepa, más frío
       { tex: '3-helado.png',    r: 0.40, dist: 46, incl: 0,  color: 0xaccadf, luces: 40,  anclado: false }, // helado, exterior
       { tex: '6-gaseoso1.png',  r: 1.40, dist: 58, incl: 0,  color: 0xb79a6e, luces: 0,   anclado: false }  // gigante gaseoso — sin superficie, sin luces
     ];
+
+    // ════════════════════════════════════════════════════════════
+    //  MAPEO HÍBRIDO de planetas: imagen envuelta + CASQUETES POLARES
+    //
+    //  Una imagen rectangular envuelta en una esfera aprieta toda su fila de
+    //  arriba en un solo punto → el polo se ve estirado en estrella. Aquí,
+    //  cerca de cada polo, en vez de envolver se PROYECTA la imagen desde
+    //  arriba (como un proyector de diapositivas apuntando al polo): el dibujo
+    //  conserva su forma. La frontera entre las dos zonas es ondulada y suave,
+    //  para que no se note un círculo.
+    //  (La costura vertical se arregla aparte, en la propia imagen: *-sc.png)
+    // ════════════════════════════════════════════════════════════
+    const CASQUETE = { desde: 0.72, hasta: 0.86 }; // |seno de la latitud|: empieza ~46°, completo ~59°
+    function aplicarCasquetes(material) {
+      material.onBeforeCompile = (shader) => {
+        shader.vertexShader = shader.vertexShader
+          .replace('#include <common>', '#include <common>\nvarying vec3 vObjPos;')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvObjPos = position;');
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <common>', '#include <common>\nvarying vec3 vObjPos;')
+          .replace('#include <map_fragment>', `
+            #ifdef USE_MAP
+              vec3 nObj = normalize(vObjPos);              // punto de la esfera (gira con el planeta)
+              vec4 cEnv = texture2D(map, vMapUv);          // imagen envuelta (lo de siempre)
+              // Proyección desde arriba. Escala elegida para que 1 píxel de la imagen
+              // mida lo mismo que en el ecuador (u: 1/2π, v: 1/π). Cada polo toma la
+              // franja de la imagen que ya le corresponde (arriba el norte, abajo el sur).
+              float sur = step(nObj.y, 0.0);
+              vec2 uvP = vec2(nObj.x * 0.159, nObj.z * 0.318) + mix(vec2(0.5, 0.80), vec2(0.5, 0.20), sur);
+              vec4 cPol = texture2D(map, uvP);
+              float ang = atan(nObj.z, nObj.x);
+              float lat = abs(nObj.y) + 0.035 * sin(ang * 5.0 + sur * 2.0) + 0.02 * sin(ang * 11.0 + 1.3);
+              float polo = smoothstep(${CASQUETE.desde.toFixed(3)}, ${CASQUETE.hasta.toFixed(3)}, lat);
+              diffuseColor *= mix(cEnv, cPol, polo);
+            #endif`);
+      };
+    }
 
     const planetas = [];
 
@@ -619,6 +657,7 @@
         new THREE.SphereGeometry(m.r, 64, 64),
         new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 })
       );
+      if (m.hibrido) aplicarCasquetes(mesh.material); // polos sin estirar (de momento, solo el templado)
       grupo.add(mesh);
 
       // (sin halo: los planetas se ven como discos reales, a su tamaño)
