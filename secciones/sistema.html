@@ -16,7 +16,7 @@
   </style>
 </head>
 <body>
-  <div id="ayuda">Pincha un mundo para acercarte · pincha el vacío para volver</div>
+  <div id="ayuda">Pincha un mundo para acercarte · arrastra para girar a su alrededor · pincha el vacío para volver</div>
 
   <script type="importmap">
   {
@@ -30,6 +30,7 @@
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 
     // ════════════════════════════════════════════════════════════
     //  RENDERER / ESCENA / CÁMARA
@@ -593,19 +594,20 @@
     //  incl    inclinación de la órbita (grados)
     //  color   color del punto visto de lejos
     //  luces   nº de luces de ciudad (0 = sin superficie habitada)
-    //  hibrido true = imagen sin costura (*-sc.png) + casquetes polares proyectados
+    //  tex     imágenes *-sc.png = versiones sin costura (las originales siguen en la carpeta)
+    //  poloOscuro  oscurece los casquetes polares (solo el gaseoso)
     //  anclado anclaje por marea. Con estrella K sólo los interiores
     //          suelen anclarse; los de la zona habitable y exteriores, no.
     // ════════════════════════════════════════════════════════════
     const mundos = [
-      { tex: '5-lava.png',      r: 0.35, dist: 12, incl: 0,  color: 0xd1552e, luces: 30,  anclado: true  }, // magmático, el más interior
-      { tex: '2-desertica.png', r: 0.45, dist: 16, incl: 0,  color: 0xc88a4a, luces: 120, anclado: true  }, // desértico, caliente y seco
-      { tex: '8-roca.png',      r: 0.30, dist: 20, incl: 14, color: 0x8a7f72, luces: 60,  anclado: false }, // rocoso desplazado (órbita inclinada)
-      { tex: '1-islas.png',     r: 0.50, dist: 26, incl: 0,  color: 0x6fae7a, luces: 650, anclado: false }, // archipiélagos — zona habitable
-      { tex: '4-templado-sc.png', hibrido: true, r: 0.55, dist: 31, incl: 0,  color: 0x7bbf8f, luces: 550, anclado: false }, // templado — zona habitable
-      { tex: '7-estepa.png',    r: 0.45, dist: 38, incl: 0,  color: 0x9fae73, luces: 150, anclado: false }, // estepa, más frío
-      { tex: '3-helado.png',    r: 0.40, dist: 46, incl: 0,  color: 0xaccadf, luces: 40,  anclado: false }, // helado, exterior
-      { tex: '6-gaseoso1.png',  r: 1.40, dist: 58, incl: 0,  color: 0xb79a6e, luces: 0,   anclado: false }  // gigante gaseoso — sin superficie, sin luces
+      { tex: '5-lava-sc.png',       r: 0.35, dist: 12, incl: 0,  color: 0xd1552e, luces: 30,  anclado: true  }, // magmático, el más interior
+      { tex: '2-desertica-sc.png',  r: 0.45, dist: 16, incl: 0,  color: 0xc88a4a, luces: 120, anclado: true  }, // desértico, caliente y seco
+      { tex: '8-roca-sc.png',       r: 0.30, dist: 20, incl: 14, color: 0x8a7f72, luces: 60,  anclado: false }, // rocoso desplazado (órbita inclinada)
+      { tex: '1-islas-sc.png',      r: 0.50, dist: 26, incl: 0,  color: 0x6fae7a, luces: 650, anclado: false }, // archipiélagos — zona habitable
+      { tex: '4-templado-sc.png',   r: 0.55, dist: 31, incl: 0,  color: 0x7bbf8f, luces: 550, anclado: false }, // templado — zona habitable
+      { tex: '7-estepa-sc.png',     r: 0.45, dist: 38, incl: 0,  color: 0x9fae73, luces: 150, anclado: false }, // estepa, más frío
+      { tex: '3-helado-sc.png',     r: 0.40, dist: 46, incl: 0,  color: 0xaccadf, luces: 40,  anclado: false }, // helado, exterior
+      { tex: '6-gaseoso1-sc.png',   r: 1.40, dist: 58, incl: 0,  color: 0xb79a6e, luces: 0,   anclado: false, poloOscuro: 0.3 }  // gigante gaseoso — sin superficie, sin luces; polos más oscuros y turbulentos (como Júpiter)
     ];
 
     // ════════════════════════════════════════════════════════════
@@ -620,7 +622,7 @@
     //  (La costura vertical se arregla aparte, en la propia imagen: *-sc.png)
     // ════════════════════════════════════════════════════════════
     const CASQUETE = { desde: 0.72, hasta: 0.86 }; // |seno de la latitud|: empieza ~46°, completo ~59°
-    function aplicarCasquetes(material) {
+    function aplicarCasquetes(material, oscuro = 0) { // oscuro: cuánto se oscurece el casquete (0 = nada)
       material.onBeforeCompile = (shader) => {
         shader.vertexShader = shader.vertexShader
           .replace('#include <common>', '#include <common>\nvarying vec3 vObjPos;')
@@ -640,7 +642,7 @@
               float ang = atan(nObj.z, nObj.x);
               float lat = abs(nObj.y) + 0.035 * sin(ang * 5.0 + sur * 2.0) + 0.02 * sin(ang * 11.0 + 1.3);
               float polo = smoothstep(${CASQUETE.desde.toFixed(3)}, ${CASQUETE.hasta.toFixed(3)}, lat);
-              diffuseColor *= mix(cEnv, cPol, polo);
+              diffuseColor *= mix(cEnv, cPol * ${(1 - oscuro).toFixed(3)}, polo);
             #endif`);
       };
     }
@@ -657,7 +659,7 @@
         new THREE.SphereGeometry(m.r, 64, 64),
         new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 })
       );
-      if (m.hibrido) aplicarCasquetes(mesh.material); // polos sin estirar (de momento, solo el templado)
+      aplicarCasquetes(mesh.material, m.poloOscuro || 0); // polos sin estirar
       grupo.add(mesh);
 
       // (sin halo: los planetas se ven como discos reales, a su tamaño)
@@ -693,6 +695,26 @@
     const entryPos  = new THREE.Vector3();  // pose de cámara al arrancar la transición
     const entryMira = new THREE.Vector3();
 
+    // ── Giro alrededor del planeta fijado ──
+    // TrackballControls (no OrbitControls) porque permite pasar por encima de
+    // los polos y seguir girando: OrbitControls se detiene en el polo.
+    const giroPlaneta = new TrackballControls(camara, renderer.domElement);
+    giroPlaneta.rotateSpeed = 2.5;
+    giroPlaneta.zoomSpeed = 1.0;
+    giroPlaneta.noPan = true;              // sin desplazar: siempre centrado en el planeta
+    giroPlaneta.dynamicDampingFactor = 0.12; // inercia suave al soltar
+    giroPlaneta.enabled = false;
+    const entryUp   = new THREE.Vector3();  // orientación ("arriba") de la cámara al arrancar el vuelo
+    const posPrevia = new THREE.Vector3();  // posición del planeta en el fotograma anterior
+
+    function empezarVuelo() {
+      volando = true; tProg = 0;
+      entryPos.copy(camara.position);
+      entryUp.copy(camara.up);
+      giroPlaneta.enabled = false;
+      controls.enabled = false;
+    }
+
     // Distinguir un clic real de un arrastre de los controles de cámara
     let abajoX = 0, abajoY = 0;
     renderer.domElement.addEventListener('pointerdown', (e) => { abajoX = e.clientX; abajoY = e.clientY; });
@@ -705,9 +727,16 @@
       const hit = ray.intersectObjects(planetas.map(p => p.mesh), false);
       if (hit.length) {
         const p = planetas.find(pp => pp.mesh === hit[0].object);
-        if (p !== enfocado) { enfocado = p; volando = true; tProg = 0; entryPos.copy(camara.position); entryMira.copy(controls.target); }
+        if (p !== enfocado) {
+          // Punto de partida del vuelo: desde donde MIRAMOS ahora. Si ya estábamos
+          // en un planeta (o volando) es miraFoco; en la vista general, el centro
+          // de OrbitControls. (Antes siempre se tomaba éste → el salto al sol.)
+          entryMira.copy(enfocado || volando ? miraFoco : controls.target);
+          enfocado = p; empezarVuelo();
+        }
       } else if (enfocado) {
-        enfocado = null; volando = true; tProg = 0; entryPos.copy(camara.position); entryMira.copy(miraFoco); // volver a la vista general
+        entryMira.copy(miraFoco);
+        enfocado = null; empezarVuelo(); // volver a la vista general
       }
     });
 
@@ -719,6 +748,10 @@
     const destino  = new THREE.Vector3();
     const miraFoco = new THREE.Vector3();
     const ARRIBA   = new THREE.Vector3(0, 1, 0);
+    const delta    = new THREE.Vector3();
+
+    // Duración de los vuelos en SEGUNDOS (igual en cualquier ordenador, vaya a los fps que vaya)
+    const VUELO = { ir: 1.4, volver: 1.6 };
 
     function suavizar(t) { return t * t * (3 - 2 * t); } // smoothstep para transiciones
 
@@ -727,7 +760,8 @@
 
     function animar() {
       requestAnimationFrame(animar);
-      uTiempo.value += Math.min(reloj.getDelta(), 0.1) * SOL.velocidad; // tope: si la pestaña duerme, no da un salto
+      const dt = Math.min(reloj.getDelta(), 0.1); // segundos desde el fotograma anterior (tope: si la pestaña duerme, no da un salto)
+      uTiempo.value += dt * SOL.velocidad;
       sol.rotation.y -= 0.0008; // mismo sentido que las órbitas
 
       planetas.forEach((p) => {
@@ -751,11 +785,9 @@
 
       // ─── Cámara ───
       if (enfocado) {
-        // Plano enfocado CO-MÓVIL en vista de TERMINADOR: vemos algo más de
-        // media cara ILUMINADA (geografía) con la línea día/noche y las luces
-        // en la mitad oscura. La cámara acompaña al planeta → queda fijo en
-        // cuadro; solo se mueven los demás planetas. (El sol queda fuera de
-        // cuadro: ver nota — no se puede ver la cara diurna Y el sol a la vez.)
+        // Al LLEGAR: vista de TERMINADOR (algo más de media cara iluminada, la
+        // línea día/noche y las luces en la mitad oscura). Después, el ratón
+        // gira libremente alrededor del planeta, que la cámara acompaña.
         const pos = enfocado.grupo.position;
         const d = 12.7 * enfocado.r;                  // distancia → el planeta ocupa ~20% de pantalla
         fuera.copy(pos).normalize();                  // sol → planeta (radial)
@@ -766,26 +798,42 @@
           .addScaledVector(ARRIBA, 0.26 * d);         // leve elevación
         controls.enabled = false;
         if (volando) {
-          tProg = Math.min(1, tProg + 0.025);
+          tProg = Math.min(1, tProg + dt / VUELO.ir);
           const e = suavizar(tProg);
           camara.position.lerpVectors(entryPos, destino, e);
           miraFoco.lerpVectors(entryMira, pos, e);
-          if (tProg >= 1) volando = false;
+          camara.up.lerpVectors(entryUp, ARRIBA, e).normalize(); // si veníamos girados, enderezar
+          camara.lookAt(miraFoco);
+          if (tProg >= 1) {
+            // Llegada: el mando pasa al giro libre alrededor del planeta
+            volando = false;
+            posPrevia.copy(pos);
+            giroPlaneta.target.copy(pos);
+            giroPlaneta.minDistance = enfocado.r * 2.2;  // no meterse en el planeta
+            giroPlaneta.maxDistance = enfocado.r * 40;
+            giroPlaneta.enabled = true;
+          }
         } else {
-          camara.position.copy(destino);              // co-móvil: fijo respecto al planeta
+          // CO-MÓVIL: la cámara se desplaza lo mismo que el planeta en su órbita
+          // → el planeta queda quieto en cuadro; el ratón gira alrededor de él.
+          camara.position.add(delta.subVectors(pos, posPrevia));
+          posPrevia.copy(pos);
+          giroPlaneta.target.copy(pos);
+          giroPlaneta.update();
           miraFoco.copy(pos);
         }
-        camara.lookAt(miraFoco);
       } else if (volando) {
         // Volver a la vista general
         controls.enabled = false;
-        tProg = Math.min(1, tProg + 0.02);
+        tProg = Math.min(1, tProg + dt / VUELO.volver);
         const e = suavizar(tProg);
         camara.position.lerpVectors(entryPos, VISTA_GENERAL, e);
         miraFoco.lerpVectors(entryMira, MIRADA_GENERAL, e);
+        camara.up.lerpVectors(entryUp, ARRIBA, e).normalize(); // enderezar
         camara.lookAt(miraFoco);
         if (tProg >= 1) {
           volando = false;
+          camara.up.copy(ARRIBA);
           controls.target.copy(MIRADA_GENERAL);       // devolver el mando a OrbitControls
         }
       } else {
@@ -821,6 +869,7 @@
       camara.aspect = window.innerWidth / window.innerHeight;
       camara.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      giroPlaneta.handleResize();
       encajarFondo();
     });
   </script>
