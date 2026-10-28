@@ -41,7 +41,7 @@
     document.body.appendChild(renderer.domElement);
 
     const escena = new THREE.Scene();
-    escena.background = new THREE.Color(0x05060a); // fondo por defecto hasta que llegue la nebulosa
+    escena.background = new THREE.Color(0x05060a); // negro espacial detrás de la nebulosa
 
     const camara = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 6000);
 
@@ -51,7 +51,7 @@
     const MIRADA_GENERAL  = new THREE.Vector3(0, 0, 0);
     camara.position.copy(VISTA_GENERAL);
     camara.lookAt(MIRADA_GENERAL);
-    escena.add(camara); // necesario para que las estrellas (hijas de la cámara) se rendericen
+    escena.add(camara); // necesario para que el cielo (hijo de la cámara) se renderice
 
     // Controles de cámara libres: arrastrar = girar, rueda = zoom, botón derecho = desplazar
     const controls = new OrbitControls(camara, renderer.domElement);
@@ -65,8 +65,19 @@
     const cargador = new THREE.TextureLoader();
 
     // ════════════════════════════════════════════════════════════
-    //  FONDO: campo de estrellas procedural + nebulosa opcional
+    //  CIELO: estrellas + nebulosa, reunidas en un grupo "cielo"
+    //
+    //  - Vista general: el cielo va pegado a la cámara (fijo en pantalla, no
+    //    barre al girar; decisión anterior que se mantiene).
+    //  - Planeta fijado: el cielo se SUELTA y queda fijo en el espacio; al
+    //    girar alrededor del planeta, estrellas y nebulosa pasan por la
+    //    pantalla como pasarían de verdad.
+    //  - Al volar de nuevo, se vuelve a enganchar a la cámara y se recoloca
+    //    suavemente en su encuadre original durante el vuelo.
     // ════════════════════════════════════════════════════════════
+    const cielo = new THREE.Group();
+    camara.add(cielo);
+
     (function campoEstrellas() {
       const N = 2500;
       const pos = new Float32Array(N * 3);
@@ -81,37 +92,80 @@
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
       const mat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false });
-      const estrellas = new THREE.Points(geo, mat);
-      camara.add(estrellas); // hijas de la cámara → cielo fijo en pantalla, no barre al girar/volar
+      cielo.add(new THREE.Points(geo, mat));
     })();
 
-    // Fondo PLANO encajado a la pantalla (tipo "cover"): nítido y bien
-    // compuesto, sin envolver 360° (que repartía la imagen y la difuminaba).
-    let texFondo = null;
+    // NEBULOSA: imagen en un plano lejano dentro del cielo. En la vista general
+    // ocupa la pantalla exactamente igual que antes (encaje "cover"). El plano es
+    // MAYOR que la pantalla (MARGEN_NEB) y por fuera de ella la imagen continúa
+    // en espejo y se desvanece a negro: así, al girar, no aparece un borde recto.
+    const DIST_NEB = 3000;   // detrás de las estrellas (2500), antes del límite de la cámara (6000)
+    const MARGEN_NEB = 1.6;  // el plano mide 1,6 veces la pantalla
+    const uniNeb = {
+      map:  { value: null },
+      uRep: { value: new THREE.Vector2(1, 1) },
+      uOff: { value: new THREE.Vector2(0, 0) },
+      uK:   { value: MARGEN_NEB }
+    };
+    const nebulosa = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.ShaderMaterial({
+        uniforms: uniNeb,
+        vertexShader: `
+          varying vec2 vUv;
+          void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+        `,
+        fragmentShader: `
+          uniform sampler2D map;
+          uniform vec2 uRep, uOff;
+          uniform float uK;
+          varying vec2 vUv;
+          void main() {
+            vec2 s = (vUv - 0.5) * uK + 0.5;      // 0..1 = la zona que ocupa la pantalla
+            vec3 col = texture2D(map, s * uRep + uOff).rgb;
+            float fuera = max(max(-s.x, s.x - 1.0), max(-s.y, s.y - 1.0)); // >0 fuera de la pantalla
+            float a = 1.0 - smoothstep(0.0, (uK - 1.0) * 0.5, fuera);
+            gl_FragColor = vec4(col, a);
+          }
+        `,
+        transparent: true,
+        depthWrite: false
+      })
+    );
+    nebulosa.position.z = -DIST_NEB;
+    nebulosa.visible = false; // hasta que cargue la imagen
+    cielo.add(nebulosa);
+
     function encajarFondo() {
-      if (!texFondo || !texFondo.image) return;
-      const aImg = texFondo.image.width / texFondo.image.height;
+      // tamaño del plano: 1,6 veces lo que abarca la pantalla a esa distancia
+      const alto = 2 * DIST_NEB * Math.tan(THREE.MathUtils.degToRad(camara.fov / 2));
       const aPant = window.innerWidth / window.innerHeight;
+      nebulosa.scale.set(alto * aPant * MARGEN_NEB, alto * MARGEN_NEB, 1);
+      const t = uniNeb.map.value;
+      if (!t || !t.image) return;
+      const aImg = t.image.width / t.image.height;
       if (aPant > aImg) {                 // pantalla más ancha → ajusto ancho, recorto alto
-        texFondo.repeat.set(1, aImg / aPant);
-        texFondo.offset.set(0, (1 - aImg / aPant) / 2);
+        uniNeb.uRep.value.set(1, aImg / aPant);
+        uniNeb.uOff.value.set(0, (1 - aImg / aPant) / 2);
       } else {                            // pantalla más alta → ajusto alto, recorto ancho
-        texFondo.repeat.set(aPant / aImg, 1);
-        texFondo.offset.set((1 - aPant / aImg) / 2, 0);
+        uniNeb.uRep.value.set(aPant / aImg, 1);
+        uniNeb.uOff.value.set((1 - aPant / aImg) / 2, 0);
       }
     }
     cargador.load(
       '../imagenes/sistema/fondo-espacio.png',
       (t) => {
-        t.colorSpace = THREE.SRGBColorSpace;
+        // (sin colorSpace: se usan los valores de la imagen tal cual → mismo color que antes)
         t.anisotropy = renderer.capabilities.getMaxAnisotropy();
-        texFondo = t;
-        escena.background = t;
+        t.wrapS = t.wrapT = THREE.MirroredRepeatWrapping; // fuera de la imagen, continúa en espejo
+        uniNeb.map.value = t;
+        nebulosa.visible = true;
         encajarFondo();
       },
       undefined,
-      () => { /* sin imagen aún: se queda el color + estrellas procedurales */ }
+      () => { /* sin imagen: se queda el color + estrellas procedurales */ }
     );
+    encajarFondo();
 
     // ════════════════════════════════════════════════════════════
     //  ESTRELLA K — "vista con filtro solar" (luz visible)
@@ -134,7 +188,8 @@
     const SOL = {
       colorCentro:   '#ffdca2', // color en el centro del disco
       colorBorde:    '#cf5a20', // color hacia el borde (capas más altas y frías)
-      oscurecimiento: 0.75,     // oscurecimiento del borde (0.75 ≈ estrella K real; el Sol ≈ 0.6)
+      oscurecimiento: 0.30,     // oscurecimiento del borde. En luz blanca: 0.75 ≈ estrella K, 0.6 ≈ Sol.
+                                //   En H-alfa casi no hay (0.3 = elección de Marcos, como sus fotos de referencia)
       grano:         1.0,       // contraste de la granulación al acercarse (0 = sin grano)
       granoDesde:    30,        // distancia a la que el grano empieza a verse
       granoPleno:    18,        // distancia a la que se ve del todo (la cámara llega a 12)
@@ -476,7 +531,7 @@
             // ESPÍCULAS: del MISMO color que el borde del disco (rojizo oscuro, por
             // el oscurecimiento del limbo) → lo prolongan en vez de dibujar una línea
             float es = espiculas(dir, max(h, 0.0), t);
-            vec3 col = vec3(0.50, 0.22, 0.07) * es * uEsp;
+            vec3 col = vec3(0.80, 0.42, 0.14) * es * uEsp; // tono del borde (ahora más claro)
 
             // PROTUBERANCIAS
             float pr = max(protuberancia(dir, h, t, 0.0,  60.0),
@@ -707,7 +762,11 @@
     const entryUp   = new THREE.Vector3();  // orientación ("arriba") de la cámara al arrancar el vuelo
     const posPrevia = new THREE.Vector3();  // posición del planeta en el fotograma anterior
 
+    const cieloQ0 = new THREE.Quaternion();   // orientación del cielo respecto a la cámara al arrancar el vuelo
+    const Q_ID = new THREE.Quaternion();      // = su encuadre original
     function empezarVuelo() {
+      if (cielo.parent !== camara) camara.attach(cielo); // re-enganchar sin saltos (conserva dónde estaba)
+      cieloQ0.copy(cielo.quaternion);
       volando = true; tProg = 0;
       entryPos.copy(camara.position);
       entryUp.copy(camara.up);
@@ -804,6 +863,8 @@
           miraFoco.lerpVectors(entryMira, pos, e);
           camara.up.lerpVectors(entryUp, ARRIBA, e).normalize(); // si veníamos girados, enderezar
           camara.lookAt(miraFoco);
+          cielo.quaternion.slerpQuaternions(cieloQ0, Q_ID, e);   // el cielo vuelve a su encuadre
+          cielo.position.set(0, 0, 0);
           if (tProg >= 1) {
             // Llegada: el mando pasa al giro libre alrededor del planeta
             volando = false;
@@ -812,6 +873,8 @@
             giroPlaneta.minDistance = enfocado.r * 2.2;  // no meterse en el planeta
             giroPlaneta.maxDistance = enfocado.r * 40;
             giroPlaneta.enabled = true;
+            camara.updateMatrixWorld();
+            escena.attach(cielo);  // soltar el cielo: queda fijo en el espacio
           }
         } else {
           // CO-MÓVIL: la cámara se desplaza lo mismo que el planeta en su órbita
@@ -821,6 +884,7 @@
           giroPlaneta.target.copy(pos);
           giroPlaneta.update();
           miraFoco.copy(pos);
+          cielo.position.copy(camara.position); // el cielo acompaña a la cámara en posición (está "en el infinito"), no en giro
         }
       } else if (volando) {
         // Volver a la vista general
@@ -831,6 +895,8 @@
         miraFoco.lerpVectors(entryMira, MIRADA_GENERAL, e);
         camara.up.lerpVectors(entryUp, ARRIBA, e).normalize(); // enderezar
         camara.lookAt(miraFoco);
+        cielo.quaternion.slerpQuaternions(cieloQ0, Q_ID, e);     // el cielo vuelve a su encuadre
+        cielo.position.set(0, 0, 0);
         if (tProg >= 1) {
           volando = false;
           camara.up.copy(ARRIBA);
