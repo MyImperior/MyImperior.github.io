@@ -199,7 +199,8 @@
       halo:          1.0,       // brillo del halo (gradiente suave, el de la primera versión)
       espiculas:     1.0,       // chorros finos de plasma en el borde (0 = borde limpio)
       protuberancias: 1.0,      // brillo de las protuberancias (0 = ninguna)
-      numProtuberancias: 5,     // cuántas existen a la vez repartidas por el sol (no todas se ven)
+      numProtuberancias: 6,     // cuántas existen repartidas por el sol (no todas se ven)
+      giro:          0.048,     // giro del sol (radianes por segundo): 0.048 = una vuelta en ~2 min 10 s
       velocidad:     1.0        // ritmo al que hierve el grano y evolucionan las cosas
     };
 
@@ -593,11 +594,14 @@
             float sobreDisco = (1.0 - smoothstep(uRadio * 0.995, uRadio * 1.01, dist)) * step(0.0, tca);
             // como filamento, se nota más hacia el centro del disco; junto al borde
             // (que ya es más oscuro) casi desaparece → sin muescas negras en el limbo
-            float contraste = smoothstep(uRadio * 1.0, uRadio * 0.85, dist);
+            float contraste = smoothstep(uRadio * 1.0, uRadio * 0.93, dist);
 
             vec3 brillante = vec3(1.0, 0.47, 0.22) * 0.9 * uBrillo;  // contra el espacio
-            vec3 oscuro    = vec3(0.45, 0.19, 0.07);                 // filamento contra el disco
-            gl_FragColor = vec4(mix(brillante, oscuro, sobreDisco), a * mix(1.0, 0.45 * contraste, sobreDisco));
+            vec3 oscuro    = vec3(0.38, 0.15, 0.05);                 // filamento contra el disco
+            // sobre el disco el plasma se ve "en planta": se refuerza para que el
+            // filamento sea una banda oscura bien visible, como en las fotos H-alfa
+            float aDisco = min(1.0, a * 1.8) * 0.8 * contraste;
+            gl_FragColor = vec4(mix(brillante, oscuro, sobreDisco), mix(a, aDisco, sobreDisco));
           }
         `,
         transparent: true,
@@ -606,7 +610,7 @@
       }));
       mesh.frustumCulled = false; // la forma se calcula en el shader: el recorte automático no la conoce
       sol.add(mesh);
-      prots.push({ uni, periodo: 45 + Math.random() * 45, desfase: Math.random(), k: -1 });
+      prots.push({ uni, periodo: 150 + Math.random() * 100, desfase: Math.random(), k: -1 }); // viven ~1,5–2,5 min: les da tiempo a dar media vuelta o más con el sol
     }
 
     // Recolocar una protuberancia que (re)nace: dónde, orientación, tamaño
@@ -630,7 +634,7 @@
       pr.uni.uAncho.value = 0.08 + Math.random() * 0.10;
       pr.uni.uAlto.value  = Math.random() < 0.15 ? 0.16 + Math.random() * 0.08   // de vez en cuando, una grande
                                                  : 0.05 + Math.random() * 0.09;
-      pr.uni.uInclin.value = (Math.random() - 0.5) * 0.8;
+      pr.uni.uInclin.value = (Math.random() < 0.5 ? -1 : 1) * (0.3 + Math.random() * 0.3); // siempre algo ladeada: vista desde arriba tiene anchura
       pr.uni.uSemilla.value = Math.random() * 100;
     }
 
@@ -641,8 +645,8 @@
         const k = Math.floor(ciclo);
         if (k !== pr.k) { pr.k = k; nacerProtuberancia(pr); }
         const f = ciclo - k;
-        // nace (0→0.15), vive, se apaga (0.5→0.65) y descansa hasta renacer en otro sitio
-        pr.uni.uEnv.value = THREE.MathUtils.smoothstep(f, 0, 0.15) * (1 - THREE.MathUtils.smoothstep(f, 0.5, 0.65));
+        // nace (0→0.08), vive, se apaga (0.62→0.72) y descansa hasta renacer en otro sitio
+        pr.uni.uEnv.value = THREE.MathUtils.smoothstep(f, 0, 0.08) * (1 - THREE.MathUtils.smoothstep(f, 0.62, 0.72));
       }
     }
 
@@ -929,7 +933,7 @@
       requestAnimationFrame(animar);
       const dt = Math.min(reloj.getDelta(), 0.1); // segundos desde el fotograma anterior (tope: si la pestaña duerme, no da un salto)
       uTiempo.value += dt * SOL.velocidad;
-      sol.rotation.y -= 0.0008; // mismo sentido que las órbitas
+      sol.rotation.y -= SOL.giro * dt; // por segundos, no por fotogramas: igual en el Chromebook que en el PC
       actualizarProtuberancias();
 
       planetas.forEach((p) => {
