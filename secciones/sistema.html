@@ -177,8 +177,8 @@
     //     píxel); aparece y se ve hervir al ACERCARSE
     //   - manchas de contraste real (pardas, no negras) y fáculas junto al borde
     //   - borde nítido
-    //  Licencias artísticas: halo cálido alrededor y alguna protuberancia en
-    //  el borde que aparece y se apaga despacio.
+    //  Licencias artísticas: halo cálido alrededor y protuberancias que nacen
+    //  y mueren por toda la superficie y giran con el sol.
     //
     //  Los colores que se escriben aquí son los que se VEN en pantalla.
     // ════════════════════════════════════════════════════════════
@@ -198,7 +198,8 @@
       numGrupos:     5,         // grupos de manchas (líder + seguidora + poro), máximo 6
       halo:          1.0,       // brillo del halo (gradiente suave, el de la primera versión)
       espiculas:     1.0,       // chorros finos de plasma en el borde (0 = borde limpio)
-      protuberancias: 1.0,      // brillo de las protuberancias del borde (0 = ninguna)
+      protuberancias: 1.0,      // brillo de las protuberancias (0 = ninguna)
+      numProtuberancias: 5,     // cuántas existen a la vez repartidas por el sol (no todas se ven)
       velocidad:     1.0        // ritmo al que hierve el grano y evolucionan las cosas
     };
 
@@ -423,7 +424,7 @@
     const sol = new THREE.Mesh(new THREE.SphereGeometry(RADIO_SOL, 128, 128), matSol);
     escena.add(sol);
 
-    // ── 2) BORDE: ESPÍCULAS + PROTUBERANCIAS ───────────────────────
+    // ── 2) BORDE: ESPÍCULAS ────────────────────────────────────────
     // Un plano colocado justo donde está el CONTORNO visible del sol (el
     // círculo tangente, que queda un poco por delante del centro) y orientado
     // hacia la cámara. Así lo que dibuja encaja con el borde, y un planeta que
@@ -431,17 +432,13 @@
     // Espículas: miles de chorros finos de plasma que el campo magnético lanza
     // hacia arriba y vuelven a caer. Cada uno tiene su altura y su ritmo
     // (de 5 a 12 s): el borde deja de ser una línea y "chisporrotea".
-    // Protuberancias: arcos de plasma en el borde. Hay dos "turnos" que se
-    // repiten con periodos distintos (60 s y 85 s): en cada turno sale una en
-    // un punto al azar del borde, aparece en ~12 s, se mantiene y se apaga en
-    // ~12 s; luego hay una pausa. A veces no hay ninguna, a veces coinciden dos.
+    // (Las protuberancias van aparte, en 3D: ver más abajo.)
     const EXT_CORONA = 3.0; // el plano llega a 3 radios solares
     const uniCorona = {
       uTiempo,
       uK:      { value: 1.0 },   // corrección de perspectiva del borde (ver bucle)
       uRadioPx:{ value: 100 },   // radio del sol en píxeles de pantalla (ver bucle)
       uEsp:    { value: SOL.espiculas },
-      uProt:   { value: SOL.protuberancias },
       uExt:    { value: EXT_CORONA }
     };
     const corona = new THREE.Mesh(
@@ -457,7 +454,6 @@
           uniform float uK;
           uniform float uRadioPx;
           uniform float uEsp;
-          uniform float uProt;
           uniform float uExt;
           varying vec2 vUv;
 
@@ -493,32 +489,6 @@
             return max(s, base * 0.8);
           }
 
-          // Un arco de plasma. h = altura sobre el borde (en radios solares).
-          float protuberancia(vec2 dir, float h, float t, float semilla, float periodo) {
-            float ciclo = t / periodo + semilla;
-            float k = floor(ciclo);
-            float fase = fract(ciclo);
-            // aparece (0→0.2), se mantiene, se apaga (0.4→0.6), y pausa hasta el siguiente
-            float env = smoothstep(0.0, 0.2, fase) * (1.0 - smoothstep(0.4, 0.6, fase));
-            if (env <= 0.0) return 0.0;
-            float th0   = azar(k + semilla * 13.0) * 6.2831;             // dónde sale
-            float ancho = 0.08 + 0.10 * azar(k * 1.7 + semilla);         // anchura de la base (rad)
-            float alto  = (0.05 + 0.09 * azar(k * 2.3 + semilla))        // altura (radios solares)
-                        * (0.75 + 0.25 * smoothstep(0.0, 0.3, fase));    // crece un poco al aparecer
-            float th = atan(dir.y, dir.x);
-            float u = atan(sin(th - th0), cos(th - th0)) / ancho;        // -1..1 a lo largo de la base
-            if (abs(u) > 1.2) return 0.0;
-            float arco = alto * sqrt(max(0.0, 1.0 - u * u))              // forma de arco...
-                       * (1.0 + 0.25 * snoise(vec3(dir * 6.0, t * 0.02 + semilla))); // ...irregular
-            float n = snoise(vec3(dir * 18.0, h * 6.0 - t * 0.06 + semilla * 10.0));
-            float grosor = 0.012 + 0.008 * n;
-            float hebra = 1.0 - smoothstep(grosor * 0.4, grosor, abs(h - arco)); // el arco en sí
-            // plasma colgando bajo el arco, en fibras casi verticales
-            float fibras = 0.5 + 0.5 * snoise(vec3(dir * 45.0, h * 3.0 - t * 0.04 + semilla * 7.0));
-            float bajo = (1.0 - smoothstep(arco - 0.01, arco, h)) * (0.3 + 0.7 * fibras) * (1.0 - smoothstep(0.6, 1.0, abs(u)));
-            return max(hebra, bajo * fibras * 0.35) * env;   // relleno tenue y fibroso, no una cáscara
-          }
-
           void main() {
             vec2 c = (vUv - 0.5) * 2.0 * uExt;   // coordenadas en radios solares
             float rr = length(c);
@@ -533,11 +503,6 @@
             float es = espiculas(dir, max(h, 0.0), t);
             vec3 col = vec3(0.80, 0.42, 0.14) * es * uEsp; // tono del borde (ahora más claro)
 
-            // PROTUBERANCIAS
-            float pr = max(protuberancia(dir, h, t, 0.0,  60.0),
-                           protuberancia(dir, h, t, 0.37, 85.0));
-            col += vec3(1.0, 0.45, 0.22) * pr * 0.7 * uProt;
-
             col *= 1.0 - smoothstep(uExt * 0.77, uExt, rr);  // apagar antes del borde del plano
             gl_FragColor = vec4(col, 1.0);
           }
@@ -549,24 +514,167 @@
     );
     escena.add(corona);
 
-    // ── 3) HALO: el gradiente suave de la primera versión, sin rayos ──
-    function texturaGlow() {
+    // ── 3) PROTUBERANCIAS en 3D, ancladas a la superficie ──────────
+    // Cada protuberancia es una "cortina" de plasma: una lámina curvada que se
+    // apoya en dos puntos de la superficie y se arquea hacia arriba, siguiendo
+    // las líneas del campo magnético. Es HIJA del sol → gira con él.
+    //  - Vista de perfil (asomando por el borde): arco brillante con fibras.
+    //  - Vista desde arriba (sobre el disco): FILAMENTO oscuro. Así se ven de
+    //    verdad: la misma estructura es brillante contra el espacio y oscura
+    //    contra el disco, que es más brillante que ella.
+    // Cada una nace, crece, vive y se apaga (decenas de segundos); entonces
+    // reaparece en otro punto. La mitad nacen junto a grupos de manchas.
+    const prots = [];
+    const geoProt = new THREE.PlaneGeometry(1, 1, 64, 20); // rejilla (u a lo largo, v hacia arriba); la forma la da el shader
+    for (let i = 0; i < SOL.numProtuberancias; i++) {
+      const uni = {
+        uTiempo,
+        uCentro:  { value: new THREE.Vector3(1, 0, 0) }, // punto medio de la base (dirección, en el sistema del sol)
+        uTang:    { value: new THREE.Vector3(0, 0, 1) }, // dirección a lo largo de la base
+        uAncho:   { value: 0.12 },  // media anchura de la base (radianes)
+        uAlto:    { value: 0.10 },  // altura máxima (en radios solares)
+        uInclin:  { value: 0.3 },   // cuánto se ladea la cortina (proporción de la altura)
+        uSemilla: { value: Math.random() * 100 },
+        uEnv:     { value: 0 },     // ciclo de vida: 0 apagada · 1 plena
+        uBrillo:  { value: SOL.protuberancias },
+        uRadio:   { value: RADIO_SOL }
+      };
+      const mesh = new THREE.Mesh(geoProt, new THREE.ShaderMaterial({
+        uniforms: uni,
+        vertexShader: `
+          uniform vec3 uCentro, uTang;
+          uniform float uAncho, uAlto, uInclin, uSemilla, uRadio;
+          varying vec2 vUv;
+          varying vec3 vMundo;
+          void main() {
+            float u = position.x + 0.5, v = position.y + 0.5;
+            vUv = vec2(u, v);
+            float ang = (u - 0.5) * 2.0 * uAncho;
+            vec3 dir = normalize(cos(ang) * uCentro + sin(ang) * uTang);  // punto de la base
+            vec3 bin = normalize(cross(dir, uTang));                       // perpendicular a la cortina
+            float x = 2.0 * u - 1.0;
+            float arco = uAlto * sqrt(max(0.0, 1.0 - x * x))               // forma de arco…
+                       * (1.0 + 0.16 * sin(u * 4.5 + uSemilla) + 0.05 * sin(u * 9.0 + uSemilla * 2.3)); // …irregular, sin ondas regulares
+            float h = v * arco;
+            // base algo hundida (queda tapada por el sol) y la cortina ladeada
+            vec3 p = dir * uRadio * (0.995 + h) + bin * uRadio * h * uInclin;
+            vec4 mundo = modelMatrix * vec4(p, 1.0);
+            vMundo = mundo.xyz;
+            gl_Position = projectionMatrix * viewMatrix * mundo;
+          }
+        `,
+        fragmentShader: RUIDO_GLSL + `
+          uniform float uTiempo, uEnv, uBrillo, uSemilla, uRadio;
+          varying vec2 vUv;
+          varying vec3 vMundo;
+          void main() {
+            float u = vUv.x, v = vUv.y;
+            // Plasma en FIBRAS casi verticales (siguen el campo magnético) que van
+            // cayendo despacio; las fibras ondulan un poco y se agrupan en GRUMOS
+            // (zonas densas y huecos), y el techo se deshilacha en vez de ser una línea.
+            float t = uTiempo;
+            float onda   = snoise(vec3(u * 6.0, v * 2.0, uSemilla + t * 0.02));
+            float fibras = 0.5 + 0.5 * snoise(vec3((u + 0.03 * onda) * 55.0, v * 1.5 - t * 0.05, uSemilla));
+            float grumos = smoothstep(-0.25, 0.65, snoise(vec3(u * 7.0, v * 2.5 - t * 0.03, uSemilla + 7.0)));
+            float techo  = 1.0 - smoothstep(0.72 + 0.18 * snoise(vec3(u * 18.0, uSemilla, t * 0.05)), 1.0, v);
+            float cuerpo = pow(fibras, 2.2) * grumos * techo * smoothstep(0.0, 0.2, v);
+            float borde  = smoothstep(0.82, 0.95, v) * (1.0 - smoothstep(0.95, 1.0, v)) * grumos; // arco, roto por los grumos
+            float a = min(1.0, max(cuerpo * 1.5, borde * 0.5));
+            a *= smoothstep(0.0, 0.06, u) * (1.0 - smoothstep(0.94, 1.0, u)); // extremos sin corte brusco
+            a *= uEnv;
+            if (a < 0.003) discard;
+
+            // ¿Este punto se ve contra el DISCO o contra el ESPACIO? Se mira si la
+            // línea de visión, al seguir, choca con la esfera del sol (centro en el origen).
+            vec3 rayo = normalize(vMundo - cameraPosition);
+            vec3 oc = -cameraPosition;
+            float tca = dot(oc, rayo);
+            float dist = sqrt(max(dot(oc, oc) - tca * tca, 0.0));
+            float sobreDisco = (1.0 - smoothstep(uRadio * 0.995, uRadio * 1.01, dist)) * step(0.0, tca);
+            // como filamento, se nota más hacia el centro del disco; junto al borde
+            // (que ya es más oscuro) casi desaparece → sin muescas negras en el limbo
+            float contraste = smoothstep(uRadio * 1.0, uRadio * 0.85, dist);
+
+            vec3 brillante = vec3(1.0, 0.47, 0.22) * 0.9 * uBrillo;  // contra el espacio
+            vec3 oscuro    = vec3(0.45, 0.19, 0.07);                 // filamento contra el disco
+            gl_FragColor = vec4(mix(brillante, oscuro, sobreDisco), a * mix(1.0, 0.45 * contraste, sobreDisco));
+          }
+        `,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      }));
+      mesh.frustumCulled = false; // la forma se calcula en el shader: el recorte automático no la conoce
+      sol.add(mesh);
+      prots.push({ uni, periodo: 45 + Math.random() * 45, desfase: Math.random(), k: -1 });
+    }
+
+    // Recolocar una protuberancia que (re)nace: dónde, orientación, tamaño
+    function nacerProtuberancia(pr) {
+      let c;
+      const grupos = manchas.filter(m => m.w > 0.03);       // líderes y seguidoras (no los poros)
+      if (grupos.length && Math.random() < 0.5) {
+        // junto a un grupo de manchas (región activa), algo desplazada
+        const m = grupos[(Math.random() * grupos.length) | 0];
+        c = new THREE.Vector3(m.x, m.y, m.z).add(new THREE.Vector3(
+          (Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.25)).normalize();
+      } else {
+        // protuberancia "tranquila": en cualquier latitud hasta ~60°
+        const lat = (Math.random() * 2 - 1) * 60 * Math.PI / 180;
+        c = dirLatLon(lat, Math.random() * Math.PI * 2);
+      }
+      const azarV = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
+      const t = azarV.cross(c).normalize();                    // dirección cualquiera tangente a la superficie
+      pr.uni.uCentro.value.copy(c);
+      pr.uni.uTang.value.copy(t);
+      pr.uni.uAncho.value = 0.08 + Math.random() * 0.10;
+      pr.uni.uAlto.value  = Math.random() < 0.15 ? 0.16 + Math.random() * 0.08   // de vez en cuando, una grande
+                                                 : 0.05 + Math.random() * 0.09;
+      pr.uni.uInclin.value = (Math.random() - 0.5) * 0.8;
+      pr.uni.uSemilla.value = Math.random() * 100;
+    }
+
+    // Ciclo de vida (se llama en cada fotograma)
+    function actualizarProtuberancias() {
+      for (const pr of prots) {
+        const ciclo = uTiempo.value / pr.periodo + pr.desfase;
+        const k = Math.floor(ciclo);
+        if (k !== pr.k) { pr.k = k; nacerProtuberancia(pr); }
+        const f = ciclo - k;
+        // nace (0→0.15), vive, se apaga (0.5→0.65) y descansa hasta renacer en otro sitio
+        pr.uni.uEnv.value = THREE.MathUtils.smoothstep(f, 0, 0.15) * (1 - THREE.MathUtils.smoothstep(f, 0.5, 0.65));
+      }
+    }
+
+    // ── 4) HALO: gradiente suave, sin rayos ──────────────────────────
+    // Perfil desde el borde del sol (x = 0) hasta el final del halo (x = 1):
+    //   brillo = 1.2 · (1 − x)^1.2   (relativo al que tenía antes junto al borde)
+    // → junto a la superficie un 20 % más intenso; a media distancia, igual que
+    //   antes; y se apaga hacia fuera de forma gradual, sin un final marcado.
+    const ESCALA_HALO = 5.85; // tamaño del halo en radios solares (diámetro)
+    function texturaHalo() {
+      const N = 256;
       const c = document.createElement('canvas');
-      c.width = c.height = 64;
+      c.width = c.height = N;
       const g = c.getContext('2d');
-      const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-      grad.addColorStop(0.0, 'rgba(255,255,255,1)');
-      grad.addColorStop(0.3, 'rgba(255,255,255,0.6)');
-      grad.addColorStop(1.0, 'rgba(255,255,255,0)');
+      const grad = g.createRadialGradient(N / 2, N / 2, 0, N / 2, N / 2, N / 2);
+      const rs = 2 / ESCALA_HALO;       // dónde cae el borde del sol en la textura (0..1)
+      const base = 0.564;               // brillo que tenía el halo antes junto al borde
+      grad.addColorStop(0, `rgba(255,255,255,${(base * 1.2).toFixed(4)})`);
+      for (let i = 0; i <= 40; i++) {
+        const x = i / 40;
+        const a = base * 1.2 * Math.pow(1 - x, 1.2);
+        grad.addColorStop(rs + x * (1 - rs), `rgba(255,255,255,${a.toFixed(4)})`);
+      }
       g.fillStyle = grad;
-      g.fillRect(0, 0, 64, 64);
+      g.fillRect(0, 0, N, N);
       return new THREE.CanvasTexture(c);
     }
     const haloSol = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: texturaGlow(), color: 0xffcc88, opacity: 0.345 * SOL.halo, // 0.3 + 15 %
+      map: texturaHalo(), color: 0xffcc88, opacity: 0.345 * SOL.halo, // 0.3 + 15 %
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
     }));
-    haloSol.scale.setScalar(RADIO_SOL * 5.85); // 4.5 + 30 %
+    haloSol.scale.setScalar(RADIO_SOL * ESCALA_HALO);
     escena.add(haloSol);
 
     const luzSol = new THREE.PointLight(0xffd9a0, 4, 3000, 0.08);
@@ -822,6 +930,7 @@
       const dt = Math.min(reloj.getDelta(), 0.1); // segundos desde el fotograma anterior (tope: si la pestaña duerme, no da un salto)
       uTiempo.value += dt * SOL.velocidad;
       sol.rotation.y -= 0.0008; // mismo sentido que las órbitas
+      actualizarProtuberancias();
 
       planetas.forEach((p) => {
         p.angulo += p.velocidad;
@@ -907,7 +1016,7 @@
         controls.update();
       }
 
-      // ─── Borde (espículas/protuberancias) y halo (después de mover la cámara) ───
+      // ─── Borde (espículas) y halo (después de mover la cámara) ───
       haloSol.position.copy(sol.position);
       const D = camara.position.distanceTo(sol.position);
       // El contorno que vemos NO es el ecuador de la esfera: es un círculo
