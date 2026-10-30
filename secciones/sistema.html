@@ -520,11 +520,10 @@
     // apoya en dos puntos de la superficie y se arquea hacia arriba, siguiendo
     // las líneas del campo magnético. Es HIJA del sol → gira con él.
     //  - Vista de perfil (asomando por el borde): arco brillante con fibras.
-    //  - Vista desde arriba (sobre el disco): FILAMENTO oscuro. Así se ven de
-    //    verdad: la misma estructura es brillante contra el espacio y oscura
-    //    contra el disco, que es más brillante que ella.
+    //  - Vista desde arriba (sobre el disco): FILAMENTO alargado (de momento,
+    //    claro, como en la foto de referencia).
     // Cada una nace, crece, vive y se apaga (decenas de segundos); entonces
-    // reaparece en otro punto. La mitad nacen junto a grupos de manchas.
+    // reaparece en otro punto, casi siempre lejos de las manchas.
     const prots = [];
     const geoProt = new THREE.PlaneGeometry(1, 1, 64, 20); // rejilla (u a lo largo, v hacia arriba); la forma la da el shader
     for (let i = 0; i < SOL.numProtuberancias; i++) {
@@ -570,17 +569,17 @@
           varying vec3 vMundo;
           void main() {
             float u = vUv.x, v = vUv.y;
-            // Plasma en FIBRAS casi verticales (siguen el campo magnético) que van
-            // cayendo despacio; las fibras ondulan un poco y se agrupan en GRUMOS
-            // (zonas densas y huecos), y el techo se deshilacha en vez de ser una línea.
+            // LÍNEAS DE CAMPO: en esta lámina, cada curva de v constante es un arco
+            // de un pie al otro (arcos anidados, como las líneas del campo magnético
+            // que sostienen el plasma). El plasma se dibuja en hebras a lo largo de
+            // esas curvas, con nudos que fluyen despacio por ellas.
             float t = uTiempo;
-            float onda   = snoise(vec3(u * 6.0, v * 2.0, uSemilla + t * 0.02));
-            float fibras = 0.5 + 0.5 * snoise(vec3((u + 0.03 * onda) * 55.0, v * 1.5 - t * 0.05, uSemilla));
-            float grumos = smoothstep(-0.25, 0.65, snoise(vec3(u * 7.0, v * 2.5 - t * 0.03, uSemilla + 7.0)));
-            float techo  = 1.0 - smoothstep(0.72 + 0.18 * snoise(vec3(u * 18.0, uSemilla, t * 0.05)), 1.0, v);
-            float cuerpo = pow(fibras, 2.2) * grumos * techo * smoothstep(0.0, 0.2, v);
-            float borde  = smoothstep(0.82, 0.95, v) * (1.0 - smoothstep(0.95, 1.0, v)) * grumos; // arco, roto por los grumos
-            float a = min(1.0, max(cuerpo * 1.5, borde * 0.5));
+            float lineas = pow(0.5 + 0.5 * snoise(vec3(u * 2.0, v * 11.0, uSemilla + t * 0.01)), 1.6); // hebras gruesas y continuas
+            float nudos  = 0.65 + 0.35 * snoise(vec3(u * 10.0 - t * 0.12, v * 11.0, uSemilla + 3.0)); // plasma que corre por la hebra
+            float lleno  = smoothstep(-0.4, 0.5, snoise(vec3(u * 3.0, v * 4.0, uSemilla + 9.0)));        // unos arcos más cargados que otros
+            float cuerpo = (0.25 + 0.75 * lineas) * nudos * (0.5 + 0.5 * lleno) * smoothstep(0.05, 0.25, v); // con un fondo de plasma entre hebras
+            float exterior = smoothstep(0.86, 0.96, v) * (1.0 - smoothstep(0.96, 1.0, v));             // el arco más alto, marcado
+            float a = min(1.0, max(cuerpo * 1.1, exterior * 0.7 * (0.6 + 0.4 * nudos)));
             a *= smoothstep(0.0, 0.06, u) * (1.0 - smoothstep(0.94, 1.0, u)); // extremos sin corte brusco
             a *= uEnv;
             if (a < 0.003) discard;
@@ -592,16 +591,12 @@
             float tca = dot(oc, rayo);
             float dist = sqrt(max(dot(oc, oc) - tca * tca, 0.0));
             float sobreDisco = (1.0 - smoothstep(uRadio * 0.995, uRadio * 1.01, dist)) * step(0.0, tca);
-            // como filamento, se nota más hacia el centro del disco; junto al borde
-            // (que ya es más oscuro) casi desaparece → sin muescas negras en el limbo
-            float contraste = smoothstep(uRadio * 1.0, uRadio * 0.93, dist);
-
             vec3 brillante = vec3(1.0, 0.47, 0.22) * 0.9 * uBrillo;  // contra el espacio
-            vec3 oscuro    = vec3(0.38, 0.15, 0.05);                 // filamento contra el disco
-            // sobre el disco el plasma se ve "en planta": se refuerza para que el
-            // filamento sea una banda oscura bien visible, como en las fotos H-alfa
-            float aDisco = min(1.0, a * 1.8) * 0.8 * contraste;
-            gl_FragColor = vec4(mix(brillante, oscuro, sobreDisco), mix(a, aDisco, sobreDisco));
+            // Sobre el disco: CLARO (prueba, como la foto de referencia de Marcos;
+            // en luz real sería algo más oscuro que el disco)
+            vec3 claro     = vec3(1.0, 0.95, 0.80);
+            float aDisco = min(1.0, a * 1.3) * 0.75;
+            gl_FragColor = vec4(mix(brillante, claro, sobreDisco), mix(a, aDisco, sobreDisco));
           }
         `,
         transparent: true,
@@ -615,17 +610,21 @@
 
     // Recolocar una protuberancia que (re)nace: dónde, orientación, tamaño
     function nacerProtuberancia(pr) {
-      let c;
-      const grupos = manchas.filter(m => m.w > 0.03);       // líderes y seguidoras (no los poros)
-      if (grupos.length && Math.random() < 0.5) {
-        // junto a un grupo de manchas (región activa), algo desplazada
-        const m = grupos[(Math.random() * grupos.length) | 0];
-        c = new THREE.Vector3(m.x, m.y, m.z).add(new THREE.Vector3(
-          (Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.25)).normalize();
+      // Casi todas son "tranquilas": latitudes medias (20°–60°) y LEJOS de las
+      // manchas (las grandes y largas de las fotos son así). Alguna (20 %) bordea
+      // una región activa, pero sin tocar sus manchas.
+      const grupos = manchas.filter(m => m.w > 0.03);
+      let c = null;
+      if (grupos.length && Math.random() < 0.2) {
+        const m = new THREE.Vector3().copy(grupos[(Math.random() * grupos.length) | 0]).normalize();
+        const lado = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).cross(m).normalize();
+        c = m.multiplyScalar(Math.cos(0.3)).addScaledVector(lado, Math.sin(0.3)).normalize(); // a ~17° de la mancha
       } else {
-        // protuberancia "tranquila": en cualquier latitud hasta ~60°
-        const lat = (Math.random() * 2 - 1) * 60 * Math.PI / 180;
-        c = dirLatLon(lat, Math.random() * Math.PI * 2);
+        for (let intento = 0; intento < 20; intento++) {
+          const lat = (Math.random() < 0.5 ? 1 : -1) * (20 + Math.random() * 40) * Math.PI / 180;
+          c = dirLatLon(lat, Math.random() * Math.PI * 2);
+          if (!grupos.some(m => c.dot(new THREE.Vector3(m.x, m.y, m.z).normalize()) > Math.cos(0.35))) break; // lejos de manchas
+        }
       }
       const azarV = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
       const t = azarV.cross(c).normalize();                    // dirección cualquiera tangente a la superficie
