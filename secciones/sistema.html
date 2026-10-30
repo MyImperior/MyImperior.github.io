@@ -515,17 +515,50 @@
     );
     escena.add(corona);
 
-    // ── 3) PROTUBERANCIAS en 3D, ancladas a la superficie ──────────
-    // Cada protuberancia es una "cortina" de plasma: una lámina curvada que se
-    // apoya en dos puntos de la superficie y se arquea hacia arriba, siguiendo
-    // las líneas del campo magnético. Es HIJA del sol → gira con él.
-    //  - Vista de perfil (asomando por el borde): arco brillante con fibras.
-    //  - Vista desde arriba (sobre el disco): FILAMENTO alargado (de momento,
-    //    claro, como en la foto de referencia).
-    // Cada una nace, crece, vive y se apaga (decenas de segundos); entonces
-    // reaparece en otro punto, casi siempre lejos de las manchas.
+    // ── 3) PROTUBERANCIAS en 3D: HACES DE BUCLES de campo magnético ──
+    // Cada protuberancia es un haz de bucles: decenas de "tubos" finos de plasma,
+    // cada uno siguiendo una línea de campo de un pie al otro. Los bucles se
+    // reparten a lo largo de la base, en altura y en PROFUNDIDAD (a ambos lados
+    // del plano del arco): es un volumen, no una lámina, y se ve 3D desde
+    // cualquier ángulo (los bucles se cruzan y se tapan con paralaje real).
+    // Cada tubo se dibuja como una cinta que siempre se encara a la cámara, con
+    // el centro más brillante que los bordes → parece cilíndrico.
+    // El haz es HIJO del sol → gira con él. Nace, vive y se apaga, y reaparece
+    // en otro punto, casi siempre lejos de las manchas.
     const prots = [];
-    const geoProt = new THREE.PlaneGeometry(1, 1, 64, 20); // rejilla (u a lo largo, v hacia arriba); la forma la da el shader
+    const N_BUCLES = 36, N_SEG = 48;
+    function geometriaHaz() {
+      const nV = N_BUCLES * (N_SEG + 1) * 2;
+      const aS = new Float32Array(nV), aLado = new Float32Array(nV), aBucle = new Float32Array(nV * 4);
+      const idx = [];
+      let v = 0;
+      for (let b = 0; b < N_BUCLES; b++) {
+        const prof   = Math.random() * 2 - 1;                    // profundidad: −1..1 a través del haz
+        const altura = 0.35 + 0.65 * Math.sqrt(Math.random());   // altura relativa (más bucles altos que bajos)
+        const despl  = (Math.random() * 2 - 1) * 0.35;           // desplazamiento a lo largo de la base
+        const semilla = Math.random() * 50;
+        const v0 = v;
+        for (let i = 0; i <= N_SEG; i++) {
+          for (const lado of [-1, 1]) {
+            aS[v] = i / N_SEG; aLado[v] = lado;
+            aBucle.set([prof, altura, despl, semilla], v * 4);
+            v++;
+          }
+        }
+        for (let i = 0; i < N_SEG; i++) {
+          const a = v0 + i * 2;
+          idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+        }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nV * 3), 3)); // la posición real la calcula el shader
+      g.setAttribute('aS', new THREE.BufferAttribute(aS, 1));
+      g.setAttribute('aLado', new THREE.BufferAttribute(aLado, 1));
+      g.setAttribute('aBucle', new THREE.BufferAttribute(aBucle, 4));
+      g.setIndex(idx);
+      return g;
+    }
+
     for (let i = 0; i < SOL.numProtuberancias; i++) {
       const uni = {
         uTiempo,
@@ -533,70 +566,69 @@
         uTang:    { value: new THREE.Vector3(0, 0, 1) }, // dirección a lo largo de la base
         uAncho:   { value: 0.12 },  // media anchura de la base (radianes)
         uAlto:    { value: 0.10 },  // altura máxima (en radios solares)
-        uInclin:  { value: 0.3 },   // cuánto se ladea la cortina (proporción de la altura)
+        uInclin:  { value: 0.3 },   // cuánto se ladea el haz (proporción de la altura)
         uSemilla: { value: Math.random() * 100 },
         uEnv:     { value: 0 },     // ciclo de vida: 0 apagada · 1 plena
         uBrillo:  { value: SOL.protuberancias },
         uRadio:   { value: RADIO_SOL }
       };
-      const mesh = new THREE.Mesh(geoProt, new THREE.ShaderMaterial({
+      const mesh = new THREE.Mesh(geometriaHaz(), new THREE.ShaderMaterial({
         uniforms: uni,
         vertexShader: `
           uniform vec3 uCentro, uTang;
           uniform float uAncho, uAlto, uInclin, uSemilla, uRadio;
-          varying vec2 vUv;
+          attribute float aS, aLado;
+          attribute vec4 aBucle;   // profundidad, altura relativa, desplazamiento, semilla
+          varying float vLado, vS, vAltura;
           varying vec3 vMundo;
+          varying float vSem;
+
+          // Punto del bucle a la fracción s (0 = un pie, 1 = el otro), en el sistema del sol
+          vec3 punto(float s) {
+            float anchoB = uAncho * (0.55 + 0.45 * aBucle.y);              // los bucles altos, más anchos
+            float ang = (aBucle.z + (s - 0.5) * 2.0) * anchoB;
+            vec3 dir = normalize(cos(ang) * uCentro + sin(ang) * uTang);
+            vec3 bin = normalize(cross(uCentro, uTang));                   // a través del haz
+            float x = 2.0 * s - 1.0;
+            float h = uAlto * aBucle.y * sqrt(max(0.0, 1.0 - x * x))
+                    * (1.0 + 0.12 * sin(s * 5.0 + aBucle.w + uSemilla));   // cada bucle algo irregular
+            float grosor = uAlto * 0.45;                                    // anchura del haz en profundidad
+            return dir * uRadio * (0.995 + h)
+                 + bin * uRadio * (aBucle.x * grosor * (0.4 + 0.6 * sqrt(max(0.0, 1.0 - x * x))) + h * uInclin);
+          }
+
           void main() {
-            float u = position.x + 0.5, v = position.y + 0.5;
-            vUv = vec2(u, v);
-            float ang = (u - 0.5) * 2.0 * uAncho;
-            vec3 dir = normalize(cos(ang) * uCentro + sin(ang) * uTang);  // punto de la base
-            vec3 bin = normalize(cross(dir, uTang));                       // perpendicular a la cortina
-            float x = 2.0 * u - 1.0;
-            float arco = uAlto * sqrt(max(0.0, 1.0 - x * x))               // forma de arco…
-                       * (1.0 + 0.16 * sin(u * 4.5 + uSemilla) + 0.05 * sin(u * 9.0 + uSemilla * 2.3)); // …irregular, sin ondas regulares
-            float h = v * arco;
-            // base algo hundida (queda tapada por el sol) y la cortina ladeada
-            vec3 p = dir * uRadio * (0.995 + h) + bin * uRadio * h * uInclin;
-            vec4 mundo = modelMatrix * vec4(p, 1.0);
-            vMundo = mundo.xyz;
-            gl_Position = projectionMatrix * viewMatrix * mundo;
+            vec3 p  = (modelMatrix * vec4(punto(aS), 1.0)).xyz;
+            vec3 pA = (modelMatrix * vec4(punto(max(aS - 0.01, 0.0)), 1.0)).xyz;
+            vec3 pB = (modelMatrix * vec4(punto(min(aS + 0.01, 1.0)), 1.0)).xyz;
+            vec3 tang = normalize(pB - pA + 1e-6);
+            vec3 hacia = normalize(cameraPosition - p);
+            vec3 lado = cross(tang, hacia);
+            lado = length(lado) > 1e-4 ? normalize(lado) : vec3(0.0, 1.0, 0.0);
+            float ancho = uRadio * uAlto * 0.06;                            // grosor de cada tubo
+            p += lado * aLado * ancho;
+            vLado = aLado; vS = aS; vAltura = aBucle.y; vSem = aBucle.w; vMundo = p;
+            gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
           }
         `,
         fragmentShader: RUIDO_GLSL + `
           uniform float uTiempo, uEnv, uBrillo, uSemilla, uRadio;
-          varying vec2 vUv;
+          varying float vLado, vS, vAltura, vSem;
           varying vec3 vMundo;
           void main() {
-            float u = vUv.x, v = vUv.y;
-            // LÍNEAS DE CAMPO: en esta lámina, cada curva de v constante es un arco
-            // de un pie al otro (arcos anidados, como las líneas del campo magnético
-            // que sostienen el plasma). El plasma se dibuja en hebras a lo largo de
-            // esas curvas, con nudos que fluyen despacio por ellas.
-            float t = uTiempo;
-            float lineas = pow(0.5 + 0.5 * snoise(vec3(u * 2.0, v * 11.0, uSemilla + t * 0.01)), 1.6); // hebras gruesas y continuas
-            float nudos  = 0.65 + 0.35 * snoise(vec3(u * 10.0 - t * 0.12, v * 11.0, uSemilla + 3.0)); // plasma que corre por la hebra
-            float lleno  = smoothstep(-0.4, 0.5, snoise(vec3(u * 3.0, v * 4.0, uSemilla + 9.0)));        // unos arcos más cargados que otros
-            float cuerpo = (0.25 + 0.75 * lineas) * nudos * (0.5 + 0.5 * lleno) * smoothstep(0.05, 0.25, v); // con un fondo de plasma entre hebras
-            float exterior = smoothstep(0.86, 0.96, v) * (1.0 - smoothstep(0.96, 1.0, v));             // el arco más alto, marcado
-            float a = min(1.0, max(cuerpo * 1.1, exterior * 0.7 * (0.6 + 0.4 * nudos)));
-            a *= smoothstep(0.0, 0.06, u) * (1.0 - smoothstep(0.94, 1.0, u)); // extremos sin corte brusco
-            a *= uEnv;
-            if (a < 0.003) discard;
-
-            // ¿Este punto se ve contra el DISCO o contra el ESPACIO? Se mira si la
-            // línea de visión, al seguir, choca con la esfera del sol (centro en el origen).
+            float tubo  = pow(1.0 - abs(vLado), 1.5);                              // centro brillante, bordes suaves → cilindro
+            float nudos = 0.55 + 0.45 * snoise(vec3(vS * 7.0 - uTiempo * 0.12, vSem, uSemilla)); // plasma que corre por el bucle
+            float pies  = smoothstep(0.0, 0.08, vS) * (1.0 - smoothstep(0.92, 1.0, vS));
+            float a = tubo * nudos * pies * (0.35 + 0.35 * vAltura) * uEnv;
+            if (a < 0.004) discard;
+            // sobre el disco, algo más tenue (el mismo tono, sin volverse negro ni blanco)
             vec3 rayo = normalize(vMundo - cameraPosition);
             vec3 oc = -cameraPosition;
             float tca = dot(oc, rayo);
             float dist = sqrt(max(dot(oc, oc) - tca * tca, 0.0));
             float sobreDisco = (1.0 - smoothstep(uRadio * 0.995, uRadio * 1.01, dist)) * step(0.0, tca);
-            vec3 brillante = vec3(1.0, 0.47, 0.22) * 0.9 * uBrillo;  // contra el espacio
-            // Sobre el disco: CLARO (prueba, como la foto de referencia de Marcos;
-            // en luz real sería algo más oscuro que el disco)
-            vec3 claro     = vec3(1.0, 0.95, 0.80);
-            float aDisco = min(1.0, a * 1.3) * 0.75;
-            gl_FragColor = vec4(mix(brillante, claro, sobreDisco), mix(a, aDisco, sobreDisco));
+            vec3 col = vec3(1.0, 0.47, 0.22) * 0.95 * uBrillo;
+            gl_FragColor = vec4(col, a * mix(1.0, 0.75, sobreDisco));
           }
         `,
         transparent: true,
