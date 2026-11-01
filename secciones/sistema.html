@@ -30,7 +30,6 @@
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-    import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 
     // ════════════════════════════════════════════════════════════
     //  RENDERER / ESCENA / CÁMARA
@@ -59,6 +58,7 @@
     controls.dampingFactor = 0.08;
     controls.minDistance = 12; // = 2 × radio del sol: impide meter la cámara DENTRO de la estrella
     controls.maxDistance = 400;
+    controls.enableRotate = false; // el giro lo hace el código propio de "eje bloqueado" (ver INTERACCIÓN)
     controls.target.copy(MIRADA_GENERAL);
     controls.update();
 
@@ -627,7 +627,7 @@
             float tca = dot(oc, rayo);
             float dist = sqrt(max(dot(oc, oc) - tca * tca, 0.0));
             float sobreDisco = (1.0 - smoothstep(uRadio * 0.995, uRadio * 1.01, dist)) * step(0.0, tca);
-            vec3 col = vec3(1.0, 0.47, 0.22) * 0.95 * uBrillo;
+            vec3 col = vec3(0.55, 0.16, 0.05) * uBrillo;   // rojo anaranjado oscuro
             gl_FragColor = vec4(col, a * mix(1.0, 0.75, sobreDisco));
           }
         `,
@@ -893,15 +893,87 @@
     const entryPos  = new THREE.Vector3();  // pose de cámara al arrancar la transición
     const entryMira = new THREE.Vector3();
 
-    // ── Giro alrededor del planeta fijado ──
-    // TrackballControls (no OrbitControls) porque permite pasar por encima de
-    // los polos y seguir girando: OrbitControls se detiene en el polo.
-    const giroPlaneta = new TrackballControls(camara, renderer.domElement);
-    giroPlaneta.rotateSpeed = 2.5;
-    giroPlaneta.zoomSpeed = 1.0;
-    giroPlaneta.noPan = true;              // sin desplazar: siempre centrado en el planeta
-    giroPlaneta.dynamicDampingFactor = 0.12; // inercia suave al soltar
-    giroPlaneta.enabled = false;
+    // ── Giro con el ratón, con EJE BLOQUEADO ──
+    // Para no perder de vista que el sistema gira en un plano:
+    //  - Por defecto, arrastrar solo gira en HORIZONTAL (alrededor del eje
+    //    vertical: la altura de la cámara no cambia).
+    //  - Solo si el gesto empieza CLARAMENTE vertical (casi sin componente
+    //    horizontal), ese arrastre cambia SOLO la altura; al soltar, la nueva
+    //    altura queda fijada y los siguientes arrastres vuelven a ser horizontales.
+    // El eje se decide en los primeros píxeles de cada arrastre y no cambia
+    // hasta soltar. Vale igual en la vista general (gira alrededor del centro)
+    // y con un planeta fijado (gira alrededor del planeta).
+    const GIRO = {
+      umbralPx: 8,       // píxeles que hay que mover antes de decidir el eje
+      verticalSi: 2.5,   // vertical solo si |dy| > 2,5 × |dx| (a menos de ~22° de la vertical)
+      polarMin: THREE.MathUtils.degToRad(5),   // límite de altura: casi encima del polo…
+      polarMax: THREE.MathUtils.degToRad(175), // …y casi debajo
+      inercia: 6         // cuanto mayor, antes se frena el giro al soltar
+    };
+    const arrastre = { activo: false, x0: 0, y0: 0, x: 0, y: 0, eje: null, t: 0 };
+    const velGiro = { theta: 0, phi: 0 };   // radianes por segundo (inercia al soltar)
+    const esf = new THREE.Spherical();
+    const offGiro = new THREE.Vector3();
+
+    // Gira la cámara alrededor de 'centro' en esférico (eje vertical del mundo)
+    function girarCamara(centro, dTheta, dPhi) {
+      offGiro.subVectors(camara.position, centro);
+      esf.setFromVector3(offGiro);
+      esf.theta += dTheta;
+      esf.phi = THREE.MathUtils.clamp(esf.phi + dPhi, GIRO.polarMin, GIRO.polarMax);
+      offGiro.setFromSpherical(esf);
+      camara.position.copy(centro).add(offGiro);
+      camara.lookAt(centro);
+    }
+    function centroDeGiro() { return enfocado ? enfocado.grupo.position : controls.target; }
+    function puedeGirar() { return !volando; }
+
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      Object.assign(arrastre, { activo: true, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, eje: null, t: performance.now() });
+      velGiro.theta = velGiro.phi = 0;
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (!arrastre.activo || !puedeGirar()) return;
+      if (!arrastre.eje) {
+        const dx = e.clientX - arrastre.x0, dy = e.clientY - arrastre.y0;
+        if (Math.hypot(dx, dy) < GIRO.umbralPx) return;
+        arrastre.eje = Math.abs(dy) > GIRO.verticalSi * Math.abs(dx) ? 'y' : 'x';
+        arrastre.x = e.clientX; arrastre.y = e.clientY;
+      }
+      const ahora = performance.now();
+      const dts = Math.max((ahora - arrastre.t) / 1000, 1 / 240);
+      const escala = 2 * Math.PI / renderer.domElement.clientHeight; // misma sensibilidad que antes
+      let dTheta = 0, dPhi = 0;
+      if (arrastre.eje === 'x') dTheta = -(e.clientX - arrastre.x) * escala;
+      else                      dPhi   = -(e.clientY - arrastre.y) * escala;
+      girarCamara(centroDeGiro(), dTheta, dPhi);
+      velGiro.theta = 0.6 * velGiro.theta + 0.4 * dTheta / dts;     // velocidad suavizada, para la inercia
+      velGiro.phi   = 0.6 * velGiro.phi   + 0.4 * dPhi / dts;
+      arrastre.x = e.clientX; arrastre.y = e.clientY; arrastre.t = ahora;
+    });
+    window.addEventListener('pointerup', () => {
+      if (performance.now() - arrastre.t > 80) velGiro.theta = velGiro.phi = 0; // se paró antes de soltar: sin inercia
+      arrastre.activo = false;
+    });
+    // Inercia: al soltar, el giro sigue un poco y se frena (se llama en cada fotograma)
+    function inerciaGiro(dt) {
+      if (arrastre.activo || volando) return;
+      if (Math.abs(velGiro.theta) + Math.abs(velGiro.phi) < 1e-3) return;
+      girarCamara(centroDeGiro(), velGiro.theta * dt, velGiro.phi * dt);
+      const f = Math.exp(-GIRO.inercia * dt);
+      velGiro.theta *= f; velGiro.phi *= f;
+    }
+
+    // Zoom con la rueda alrededor del planeta fijado (en la vista general lo hace OrbitControls)
+    renderer.domElement.addEventListener('wheel', (e) => {
+      if (!enfocado || volando) return;
+      e.preventDefault();
+      const c = enfocado.grupo.position;
+      offGiro.subVectors(camara.position, c);
+      const dist = THREE.MathUtils.clamp(offGiro.length() * Math.pow(1.0015, e.deltaY), enfocado.r * 2.2, enfocado.r * 40);
+      camara.position.copy(c).add(offGiro.setLength(dist));
+    }, { passive: false });
     const entryUp   = new THREE.Vector3();  // orientación ("arriba") de la cámara al arrancar el vuelo
     const posPrevia = new THREE.Vector3();  // posición del planeta en el fotograma anterior
 
@@ -913,8 +985,8 @@
       volando = true; tProg = 0;
       entryPos.copy(camara.position);
       entryUp.copy(camara.up);
-      giroPlaneta.enabled = false;
       controls.enabled = false;
+      velGiro.theta = velGiro.phi = 0;
     }
 
     // Distinguir un clic real de un arrastre de los controles de cámara
@@ -1013,10 +1085,6 @@
             // Llegada: el mando pasa al giro libre alrededor del planeta
             volando = false;
             posPrevia.copy(pos);
-            giroPlaneta.target.copy(pos);
-            giroPlaneta.minDistance = enfocado.r * 2.2;  // no meterse en el planeta
-            giroPlaneta.maxDistance = enfocado.r * 40;
-            giroPlaneta.enabled = true;
             camara.updateMatrixWorld();
             escena.attach(cielo);  // soltar el cielo: queda fijo en el espacio
           }
@@ -1025,8 +1093,8 @@
           // → el planeta queda quieto en cuadro; el ratón gira alrededor de él.
           camara.position.add(delta.subVectors(pos, posPrevia));
           posPrevia.copy(pos);
-          giroPlaneta.target.copy(pos);
-          giroPlaneta.update();
+          inerciaGiro(dt);
+          camara.lookAt(pos);
           miraFoco.copy(pos);
           cielo.position.copy(camara.position); // el cielo acompaña a la cámara en posición (está "en el infinito"), no en giro
         }
@@ -1047,7 +1115,8 @@
           controls.target.copy(MIRADA_GENERAL);       // devolver el mando a OrbitControls
         }
       } else {
-        controls.enabled = true;                        // vista general libre
+        controls.enabled = true;                        // vista general: zoom y desplazamiento (OrbitControls)
+        inerciaGiro(dt);                                // giro: el propio, de eje bloqueado
         controls.update();
       }
 
@@ -1079,7 +1148,6 @@
       camara.aspect = window.innerWidth / window.innerHeight;
       camara.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
-      giroPlaneta.handleResize();
       encajarFondo();
     });
   </script>
