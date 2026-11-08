@@ -1,0 +1,229 @@
+/* ============================================================
+   css/archivo.css
+   Aspecto COMÚN de las secciones tipo "archivo". El color de las
+   líneas sale de --acento, que pone cada sección desde su archivo
+   de datos (ciencia: aguamarina; ciencia ficción: un tono cálido).
+
+   Lenguaje visual (el mismo que la ficha de los planetas):
+   · fondo casi negro, nada de cajas macizas
+   · líneas de 1 px que brillan (acento + resplandor)
+   · esquinas en corchete en vez de bordes completos
+   · Space Grotesk para leer, JetBrains Mono para códigos y datos
+   ============================================================ */
+
+:root {
+  --acento: #6fd3c6;
+  --fondo: #05060a;
+  --texto: #d6e6ec;
+  --tenue: #7f98a2;
+  --linea: color-mix(in srgb, var(--acento) 26%, transparent);
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: radial-gradient(ellipse at 50% 45%, #0b1418 0%, var(--fondo) 62%);
+  color: var(--texto);
+  font: 300 15px/1.55 'Space Grotesk', system-ui, sans-serif;
+  overflow: hidden;
+}
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+#archivo { position: fixed; inset: 0; }
+.fondo { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+.cod {
+  font: 300 11px var(--mono); letter-spacing: .3em; text-transform: uppercase;
+  color: var(--acento); opacity: .85;
+}
+
+.volver {
+  position: absolute; top: 22px; left: 26px; z-index: 5;
+  font: 300 11px var(--mono); letter-spacing: .25em; text-transform: uppercase; color: var(--tenue);
+  transition: color .3s;
+}
+.volver:hover { color: var(--acento); }
+.volver span { display: inline-block; transition: transform .3s; }
+.volver:hover span { transform: translateX(-4px); }
+
+/* ───────────────────────── MAPA ───────────────────────── */
+.mapa {
+  position: absolute; inset: 0;
+  transition: opacity .6s, transform .8s cubic-bezier(.2, .7, .2, 1);
+}
+body.en-categoria .mapa { opacity: 0; transform: scale(.94); pointer-events: none; }
+
+.lineas { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.lineas .orbita { fill: none; stroke: var(--acento); stroke-opacity: .06; stroke-width: 1; stroke-dasharray: 2 6; }
+.lineas .traza {
+  fill: none; stroke: var(--acento); stroke-opacity: .32; stroke-width: 1;
+  stroke-dasharray: 100; stroke-dashoffset: 100;                 /* entrada: la línea se "dibuja" */
+  transition: stroke-dashoffset 1.6s cubic-bezier(.4, 0, .2, 1), stroke-opacity .3s;
+}
+body.listo .lineas .traza { stroke-dashoffset: 0; }
+.lineas .activa .traza { stroke-opacity: .9; }
+.lineas .codo { fill: var(--acento); fill-opacity: .5; }
+/* pulso de luz que viaja del centro a cada categoría */
+.lineas .pulso {
+  fill: none; stroke: var(--acento); stroke-width: 1.6; stroke-linecap: round;
+  stroke-dasharray: 4 196; stroke-dashoffset: 200;
+  animation: pulso 5.5s linear infinite;
+  opacity: 0; transition: opacity 1s 1.4s;
+}
+body.listo .lineas .pulso { opacity: 1; }
+.lineas .activa .pulso { animation-duration: 1.8s; }
+@keyframes pulso { to { stroke-dashoffset: 0; } }
+
+.centro {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  text-align: center; padding: 26px 40px;
+  background: radial-gradient(ellipse, rgba(5, 8, 11, .95) 40%, rgba(5, 8, 11, 0) 72%);
+}
+.centro h1 {
+  font-weight: 300; font-size: clamp(34px, 5vw, 64px); letter-spacing: .14em; text-transform: uppercase;
+  color: #eef7fa; text-shadow: 0 0 28px color-mix(in srgb, var(--acento) 35%, transparent);
+  margin-top: 6px;
+}
+
+.nodo {
+  position: absolute; transform: translate(-6px, -50%);
+  display: flex; align-items: center; gap: 14px; text-align: left;
+  opacity: 0; transition: opacity .8s;
+}
+body.listo .nodo { opacity: 1; transition-delay: 1s; }
+.nodo.izq { flex-direction: row-reverse; text-align: right; transform: translate(calc(-100% + 6px), -50%); }
+.nodo .marca {
+  width: 11px; height: 11px; flex: none; transform: rotate(45deg);
+  border: 1px solid var(--acento); background: var(--fondo);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--acento) 60%, transparent);
+  transition: background .3s, box-shadow .3s, transform .3s;
+}
+.nodo:hover .marca, .nodo:focus-visible .marca {
+  background: var(--acento); transform: rotate(45deg) scale(1.25);
+  box-shadow: 0 0 18px var(--acento);
+}
+.nodo .txt { display: grid; white-space: nowrap; }
+.nodo .num { font: 300 10px var(--mono); letter-spacing: .3em; color: var(--acento); opacity: .7; }
+.nodo .nombre { font-size: 21px; font-weight: 400; color: #eaf4f7; letter-spacing: .02em; transition: color .3s; }
+.nodo .lema { font: 300 11px var(--mono); color: var(--tenue); letter-spacing: .06em; }
+.nodo:hover .nombre { color: var(--acento); }
+.nodo:focus { outline: none; }
+
+/* ───────────────────────── CATEGORÍA ───────────────────────── */
+.vista {
+  position: absolute; inset: 0; display: grid; grid-template-columns: 250px 1fr;
+  opacity: 0; pointer-events: none; transform: translateX(30px);
+  transition: opacity .6s .15s, transform .8s .15s cubic-bezier(.2, .7, .2, 1);
+}
+body.en-categoria .vista { opacity: 1; pointer-events: auto; transform: none; }
+
+/* Raíl: las categorías en vertical, unidas por una línea */
+.rail { padding: 90px 0 40px 34px; }
+.rail-lista { position: relative; display: flex; flex-direction: column; gap: 4px; }
+.rail-lista::before {   /* la línea vertical, solo de la primera a la última categoría */
+  content: ''; position: absolute; left: 5px; top: 18px; bottom: 18px; width: 1px;
+  background: linear-gradient(var(--linea), color-mix(in srgb, var(--acento) 8%, transparent));
+}
+.rail-mapa {
+  text-align: left; margin-bottom: 18px; padding: 4px 0;
+  font: 300 11px var(--mono); letter-spacing: .25em; text-transform: uppercase; color: var(--tenue);
+}
+.rail-mapa:hover { color: var(--acento); }
+.rail-item { position: relative; display: flex; align-items: baseline; gap: 12px; padding: 8px 0; color: var(--tenue); transition: color .3s; }
+.rail-item .punto {
+  width: 9px; height: 9px; flex: none; transform: rotate(45deg) translateY(1px);
+  border: 1px solid var(--linea); background: var(--fondo); transition: all .3s;
+}
+.rail-item .num { font: 300 10px var(--mono); letter-spacing: .2em; opacity: .6; }
+.rail-item:hover { color: var(--texto); }
+.rail-item.activa { color: #eef7fa; }
+.rail-item.activa .punto { border-color: var(--acento); background: var(--acento); box-shadow: 0 0 12px var(--acento); }
+
+.contenido { overflow-y: auto; padding: 84px 6vw 80px 3vw; scrollbar-width: thin; scrollbar-color: var(--linea) transparent; }
+.cabecera { margin-bottom: 34px; max-width: 900px; }
+.cabecera h2 { font-weight: 300; font-size: clamp(30px, 4vw, 48px); letter-spacing: .04em; color: #eef7fa; margin: 4px 0 2px; }
+.cabecera .lema { color: var(--tenue); }
+.cabecera::after {   /* línea luminosa bajo el título */
+  content: ''; display: block; margin-top: 22px; height: 1px; max-width: 520px;
+  background: linear-gradient(90deg, var(--acento), transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--acento) 50%, transparent);
+}
+
+.rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 18px; max-width: 1200px; }
+.rejilla.libros { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.vacio { color: var(--tenue); }
+
+/* Módulo: cada entrada. Sin borde completo: esquinas en corchete + línea tenue */
+.modulo {
+  --c: var(--acento);
+  position: relative; display: flex; flex-direction: column; gap: 6px;
+  padding: 18px 20px 16px; min-height: 150px;
+  border: 1px solid color-mix(in srgb, var(--acento) 10%, transparent);
+  background:
+    linear-gradient(var(--c), var(--c)) left top / 12px 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) left top / 1px 12px no-repeat,
+    linear-gradient(var(--c), var(--c)) right bottom / 12px 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) right bottom / 1px 12px no-repeat,
+    linear-gradient(160deg, rgba(14, 26, 32, .55), rgba(6, 10, 14, .35));
+  transition: border-color .35s, box-shadow .35s, background-size .35s, transform .35s;
+  opacity: 0; animation: aparecer .6s forwards;
+}
+@keyframes aparecer { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.modulo.con-enlace:hover {
+  border-color: color-mix(in srgb, var(--acento) 35%, transparent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--acento) 12%, transparent), inset 0 0 24px color-mix(in srgb, var(--acento) 5%, transparent);
+  background-size: 40px 1px, 1px 40px, 40px 1px, 1px 40px, auto;   /* las esquinas se alargan */
+}
+.modulo .tipo {
+  display: flex; align-items: center; gap: 8px;
+  font: 300 10px var(--mono); letter-spacing: .28em; text-transform: uppercase; color: var(--acento);
+}
+.modulo .estado {
+  margin-left: auto; letter-spacing: .15em; padding: 1px 6px;
+  border: 1px solid var(--linea); color: var(--texto);
+}
+.modulo h3 { font-weight: 400; font-size: 18px; line-height: 1.3; color: #eef7fa; }
+.modulo p { font-size: 13.5px; color: #a9bfc7; }
+.modulo .meta { margin-top: auto; padding-top: 8px; font: 300 11px var(--mono); color: var(--tenue); letter-spacing: .04em; }
+
+/* Libros: más compactos, con el color de su código (js/colores.js) como franja luminosa */
+.modulo.tipo-libro { min-height: 0; padding: 14px 16px 12px 22px; --c: var(--color); }
+.modulo.tipo-libro::before {
+  content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px;
+  background: var(--color); box-shadow: 0 0 10px var(--color);
+}
+.modulo.tipo-libro h3 { font-size: 15.5px; }
+.modulo.tipo-libro .tipo { margin-bottom: -2px; }
+.modulo.tipo-libro p { font-size: 12px; }
+
+/* ───────────────────────── MÓVIL ─────────────────────────
+   Sin espacio para el mapa en elipse: las categorías se apilan con la
+   misma línea vertical del raíl, y al abrir una, el raíl pasa arriba
+   en horizontal. */
+@media (max-width: 760px) {
+  #archivo { overflow-y: auto; }
+  body.en-categoria .mapa { display: none; }
+  .nodo .txt { white-space: normal; }
+  .mapa { position: relative; inset: auto; min-height: 100%; padding: 80px 26px 40px; }
+  .lineas { display: none; }
+  .centro { position: static; transform: none; text-align: left; padding: 0 0 26px; background: none; }
+  .nodo, .nodo.izq {
+    position: relative; left: auto !important; top: auto !important; transform: none;
+    flex-direction: row; text-align: left; padding: 12px 0; width: 100%;
+  }
+  .mapa::before { content: ''; position: absolute; left: 31px; top: 190px; bottom: 60px; width: 1px; background: linear-gradient(var(--linea), transparent); }
+  .vista { grid-template-columns: 1fr; grid-template-rows: auto 1fr; transform: translateY(20px); }
+  .rail { display: flex; align-items: center; overflow-x: auto; padding: 64px 18px 10px; gap: 18px; scrollbar-width: none; }
+  .rail-lista { flex-direction: row; gap: 18px; }
+  .rail-lista::before, .rail-item .num { display: none; }
+  .rail-mapa { margin: 0; white-space: nowrap; }
+  .rail-item { white-space: nowrap; }
+  .contenido { padding: 18px 18px 60px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lineas .pulso { animation: none; opacity: 0 !important; }
+  .modulo { animation: none; opacity: 1; }
+}

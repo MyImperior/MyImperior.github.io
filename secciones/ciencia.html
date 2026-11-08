@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ciencia — MyImperior</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/archivo.css">
+</head>
+<body>
+  <!-- Toda la página la construye js/archivo.js a partir de datos/archivo-ciencia.js.
+       Para otra sección: copiar este archivo y cambiar solo la línea del import de datos. -->
+  <div id="archivo"></div>
+
+  <script type="module">
+    import { montarArchivo } from '../js/archivo.js';
+    import datos from '../datos/archivo-ciencia.js';
+    montarArchivo(datos);
+  </script>
+</body>
+</html>
