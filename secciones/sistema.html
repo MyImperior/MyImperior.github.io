@@ -268,7 +268,7 @@
     const SOL = {
       colorCentro:   '#ffd092', // color en el centro del disco (antes '#ffdca2', más pálido)
       colorBorde:    '#cc4c16', // color hacia el borde (capas más altas y frías) (antes '#cf5a20')
-      colorFlares:   '#d98e52', // tono de protuberancias y bucles: el tono medio del disco
+      colorFlares:   '#c47a44', // tono de protuberancias, bucles y borde (antes '#d98e52', algo más claro)
       oscurecimiento: 0.30,     // oscurecimiento del borde. En luz blanca: 0.75 ≈ estrella K, 0.6 ≈ Sol.
                                 //   En H-alfa casi no hay (0.3 = elección de Marcos, como sus fotos de referencia)
       grano:         1.0,       // contraste de la granulación al acercarse (0 = sin grano)
@@ -279,7 +279,7 @@
       manchasLejos:  0.4,       // fracción de ese contraste que queda de lejos (se atenúan con el grano)
       numGrupos:     5,         // grupos de manchas (líder + seguidora + poro), máximo 6
       halo:          1.0,       // brillo del halo (gradiente suave, el de la primera versión)
-      espiculas:     1.0,       // chorros finos de plasma en el borde (0 = borde limpio)
+      espiculas:     1.0,       // franja turbulenta de plasma en el borde (0 = borde limpio)
       protuberancias: 1.0,      // brillo de las protuberancias (0 = ninguna)
       buclesBorde:   36,        // bucles pequeños repartidos por todo el sol (actividad en el borde)
       bucles:        1.0,       // brillo de los bucles coronales entre manchas (0 = ninguno)
@@ -546,14 +546,13 @@
     const sol = new THREE.Mesh(new THREE.SphereGeometry(RADIO_SOL, 128, 128), matSol);
     escena.add(sol);
 
-    // ── 2) BORDE: ESPÍCULAS ────────────────────────────────────────
+    // ── 2) BORDE: FRANJA TURBULENTA ────────────────────────────────
     // Un plano colocado justo donde está el CONTORNO visible del sol (el
     // círculo tangente, que queda un poco por delante del centro) y orientado
     // hacia la cámara. Así lo que dibuja encaja con el borde, y un planeta que
     // pase por delante del sol lo tapa correctamente.
-    // Espículas: miles de chorros finos de plasma que el campo magnético lanza
-    // hacia arriba y vuelven a caer. Cada uno tiene su altura y su ritmo
-    // (de 5 a 12 s): el borde deja de ser una línea y "chisporrotea".
+    // Dibuja una franja turbulenta de plasma (jirones y lenguas irregulares)
+    // pegada al contorno, para que el borde no sea una línea.
     // (Las protuberancias van aparte, en 3D: ver más abajo.)
     const EXT_CORONA = 3.0; // el plano llega a 3 radios solares
     const uniCorona = {
@@ -583,49 +582,35 @@
 
           float azar(float x) { return fract(sin(x * 127.1 + 31.7) * 43758.5453); }
 
-          // ESPÍCULAS. El contorno se divide en N columnas finas; cada columna es
-          // un chorro con su altura máxima, su ritmo y su desfase. Su altura sube
-          // y baja (sin(π·fase)): el plasma salta y cae. Dos capas con distinto
-          // N, mezcladas, para que no se note ninguna regularidad.
-          float espiculas(vec2 dir, float h, float t) {
-            float th = atan(dir.y, dir.x) / 6.2831853 + 0.5;   // 0..1 alrededor del borde
-            float s = 0.0;
-            for (int capa = 0; capa < 2; capa++) {
-              float N = capa == 0 ? 420.0 : 610.0;
-              float anchoPx = 6.2831853 * uRadioPx / N;          // anchura de una columna en píxeles
-              float visible = smoothstep(1.2, 3.0, anchoPx);       // de lejos se apagan (evita parpadeo)
-              if (visible <= 0.0) continue;
-              float x = th * N;
-              float k = floor(x) + float(capa) * 1000.0;
-              float u = fract(x) - 0.5;                           // posición dentro de la columna
-              float a1 = azar(k * 1.31), a2 = azar(k * 2.17 + 3.0), a3 = azar(k * 0.73 + 11.0);
-              float periodo = 5.0 + 7.0 * a1;                     // segundos que dura un salto
-              float fase = fract(t / periodo + a2);
-              float vida = sin(3.14159 * fase);                   // sube… y cae
-              float H = (0.010 + 0.040 * a3 * a3) * vida;         // altura (en radios solares)
-              float lat = 1.0 - smoothstep(0.06, 0.28, abs(u - (a1 - 0.5) * 0.4)); // chorro fino
-              float vert = 1.0 - smoothstep(0.0, H, h);           // se afila y desvanece hacia la punta
-              s = max(s, lat * vert * (0.5 + 0.5 * a2) * visible);
-            }
-            // base: una franja muy baja y desigual pegada al borde, para que el
-            // contorno quede deshilachado incluso de lejos
-            float base = 1.0 - smoothstep(0.0, 0.004 + 0.004 * (0.5 + 0.5 * snoise(vec3(dir * 40.0, t * 0.3))), h);
-            return max(s, base * 0.8);
-          }
-
+          // BORDE EN LLAMAS: en vez de pelos rectos (rayas perpendiculares),
+          // una franja de plasma TURBULENTA: el ruido depende a la vez del ángulo
+          // y de la altura, y está deformado por otro ruido → jirones curvos y
+          // lenguas irregulares, como en la imagen de referencia. La altura de la
+          // franja cambia de un punto a otro del contorno (nunca una línea pareja).
+          // Todo de frecuencia baja y lento → no parpadea de lejos.
           void main() {
             vec2 c = (vUv - 0.5) * 2.0 * uExt;   // coordenadas en radios solares
             float rr = length(c);
             float r  = rr * uK;                  // 1.0 = borde del disco tal como se VE
-            if (r < 0.998) discard;
+            if (r < 0.985) discard;
             vec2 dir = c / rr;
-            float h = r - 1.0;
+            float h = r - 1.0;                   // <0: un poco dentro del disco (suaviza el contorno)
             float t = uTiempo;
 
-            // ESPÍCULAS: del MISMO color que el borde del disco (rojizo oscuro, por
-            // el oscurecimiento del limbo) → lo prolongan en vez de dibujar una línea
-            float es = espiculas(dir, max(h, 0.0), t);
-            vec3 col = uColorEsp * es * uEsp;              // tono de los flares
+            // deformación lenta (riza las estructuras)
+            vec2 w = vec2(snoise(vec3(dir * 3.0, h * 6.0 + t * 0.025)),
+                          snoise(vec3(dir * 3.0 + 7.3, h * 6.0 - t * 0.02)));
+            // jirones: ruido en ángulo Y altura, deformado
+            float jir = 0.5 + 0.5 * fbm3(vec3(dir * 6.0 + w * 0.8, h * 14.0 - t * 0.06));
+            // altura de la franja en cada punto del contorno (irregular, cambia despacio)
+            float alcance = 0.025 + 0.085 * smoothstep(-0.35, 0.65, fbm3(vec3(dir * 2.6, t * 0.015)));
+            float hh = max(h, 0.0);
+            float llama = smoothstep(0.35, 0.85, jir + 0.35 * (1.0 - hh / alcance))    // más denso abajo
+                        * (1.0 - smoothstep(alcance * 0.3, alcance, hh));             // se deshilacha arriba
+            // brillo pegado al contorno: corto, desigual; por dentro del disco se funde
+            float pegado = exp(-hh * 55.0) * (0.6 + 0.4 * jir) * smoothstep(-0.015, 0.0, h);
+            float total = (0.55 * pegado + 0.75 * llama) * uEsp;
+            vec3 col = mix(min(uColorEsp * 1.35, vec3(1.0)), uColorEsp * 0.75, clamp(hh / alcance, 0.0, 1.0)) * total;
 
             col *= 1.0 - smoothstep(uExt * 0.77, uExt, rr);  // apagar antes del borde del plano
             gl_FragColor = vec4(col, 1.0);
