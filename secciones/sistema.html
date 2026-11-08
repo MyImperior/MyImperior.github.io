@@ -186,11 +186,13 @@
 
     // ── MANDOS DEL SOL (ajustar a ojo) ─────────────────────────────
     const SOL = {
-      colorCentro:   '#ffdca2', // color en el centro del disco
-      colorBorde:    '#cf5a20', // color hacia el borde (capas más altas y frías)
+      colorCentro:   '#ffd092', // color en el centro del disco (antes '#ffdca2', más pálido)
+      colorBorde:    '#cc4c16', // color hacia el borde (capas más altas y frías) (antes '#cf5a20')
+      colorFlares:   '#d98e52', // tono de protuberancias y bucles: el tono medio del disco
       oscurecimiento: 0.30,     // oscurecimiento del borde. En luz blanca: 0.75 ≈ estrella K, 0.6 ≈ Sol.
                                 //   En H-alfa casi no hay (0.3 = elección de Marcos, como sus fotos de referencia)
       grano:         1.0,       // contraste de la granulación al acercarse (0 = sin grano)
+      red:           1.0,       // contraste de la red de celdas visible a cualquier distancia (0 = disco liso)
       granoDesde:    30,        // distancia a la que el grano empieza a verse
       granoPleno:    18,        // distancia a la que se ve del todo (la cámara llega a 12)
       manchas:       1.0,       // contraste de las manchas de cerca (1 = real)
@@ -199,7 +201,7 @@
       halo:          1.0,       // brillo del halo (gradiente suave, el de la primera versión)
       espiculas:     1.0,       // chorros finos de plasma en el borde (0 = borde limpio)
       protuberancias: 1.0,      // brillo de las protuberancias (0 = ninguna)
-      bucles:        0.85,      // brillo de los bucles coronales entre manchas (0 = ninguno)
+      bucles:        1.0,       // brillo de los bucles coronales entre manchas (0 = ninguno)
       regionActiva:  1.0,       // brillo de la zona clara alrededor de las manchas (0 = ninguna)
       numProtuberancias: 6,     // cuántas existen repartidas por el sol (no todas se ven)
       giro:          0.048,     // giro del sol (radianes por segundo): 0.048 = una vuelta en ~2 min 10 s
@@ -302,6 +304,7 @@
         uManchasK: { value: SOL.manchas },
         uManchasL: { value: SOL.manchasLejos },
         uRegAct:   { value: SOL.regionActiva },
+        uRed:      { value: SOL.red },
         uManchas:  { value: manchas }
       },
       vertexShader: `
@@ -326,6 +329,7 @@
         uniform float uManchasK;
         uniform float uManchasL;
         uniform float uRegAct;
+        uniform float uRed;
         uniform vec4  uManchas[${MAX_MANCHAS}];
         varying vec3 vPos;
         varying vec3 vNormalV;
@@ -389,8 +393,27 @@
           // Color de base: más caliente (claro) en el centro, más frío (rojizo) al borde
           vec3 col = mix(uBorde, uCentro, pow(mu, 0.7));
 
-          // Variaciones muy suaves a gran escala (supergranulación): vida, sin "líquido"
+          // Variaciones muy suaves a gran escala: vida, sin "líquido"
           col *= 1.0 + 0.03 * snoise(p * 6.0 + vec3(0.0, 0.0, t * 0.01));
+
+          // RED DE CELDAS (visible a cualquier distancia): celdas de convección
+          // grandes, de interior claro y moteado y bordes más oscuros y rojizos.
+          // No fluyen: sus centros se desplazan muy despacio y cambian de forma.
+          {
+            vec3 q = p * 20.0 + 0.30 * vec3(snoise(p * 34.0 + vec3(t * 0.04)),
+                                           snoise(p * 34.0 + 17.0),
+                                           snoise(p * 34.0 + 31.0 - vec3(t * 0.03)));
+            vec2 c = worley(q, t * 0.12);
+            float borde  = 1.0 - smoothstep(0.0, 0.30, c.y - c.x);           // 1 en las fronteras entre celdas
+            float interior = 1.0 - smoothstep(0.0, 0.85, c.x);               // claro hacia el centro de la celda
+            float mot = snoise(p * 70.0 + vec3(t * 0.08));                   // moteado fino dentro
+            // si las celdas ocupan pocos píxeles (de lejos), la red se suaviza: evita el "ruido"
+            float nitidez = 1.0 - smoothstep(0.22, 0.50, length(fwidth(q)));
+            float k = uRed * nitidez;
+            float r = 1.0 + k * (0.045 * interior - 0.06 * borde + 0.02 * mot);
+            vec3 tinteRed = mix(vec3(1.0), vec3(0.95, 0.86, 0.80), borde * k); // fronteras algo más rojizas
+            col *= r * tinteRed;
+          }
 
           // GRANULACIÓN: solo se calcula de cerca (si no, ahorra el trabajo)
           if (uGrano > 0.01) {
@@ -400,7 +423,8 @@
             float calle  = 1.0 - smoothstep(0.0, 0.45, c.y - c.x);    // 1 en las calles entre gránulos
             float g = 0.92 + 0.12 * centro - 0.07 * calle;
             vec3 tinte = mix(vec3(1.0), vec3(0.92, 0.80, 0.70), calle); // las calles, más frías → más rojizas
-            col *= mix(vec3(1.0), g * tinte, uGrano * uContGrano);
+            float nitidezG = 1.0 - smoothstep(0.20, 0.40, length(fwidth(q))); // celdas de muy pocos píxeles → se apagan (sin motas sueltas)
+            col *= mix(vec3(1.0), g * tinte, uGrano * uContGrano * nitidezG);
           }
 
           // MANCHAS y REGIONES ACTIVAS (para las fáculas)
@@ -647,7 +671,7 @@
         uEnv:     { value: 0 },     // ciclo de vida: 0 apagada · 1 plena
         uBrillo:  { value: SOL.protuberancias },
         uRadio:   { value: RADIO_SOL },
-        uColor:   { value: new THREE.Vector3(0.55, 0.16, 0.05) }, // rojo anaranjado oscuro (plasma frío)
+        uColor:   { value: vec3DeHex(SOL.colorFlares) },          // mismo tono que los bucles: el medio del disco
         uOpDisco: { value: 0.75 },
         uTubo:    { value: 0.06 }
       };
@@ -684,11 +708,11 @@
         uEnv:     { value: 1 },
         uBrillo:  { value: SOL.bucles },
         uRadio:   { value: RADIO_SOL },
-        uColor:   { value: new THREE.Vector3(1.0, 0.72, 0.42) }, // plasma muy caliente: claro y cálido
+        uColor:   { value: vec3DeHex(SOL.colorFlares) },          // mismo tono que las protuberancias
         uOpDisco: { value: 0.8 },
         uTubo:    { value: 0.06 }
       };
-      const mesh = new THREE.Mesh(geometriaHaz(), materialHaz(uni, true));
+      const mesh = new THREE.Mesh(geometriaHaz(), materialHaz(uni, false)); // sin sumar luz: así no se vuelven blancos sobre el disco
       mesh.frustumCulled = false;
       sol.add(mesh);
       bucles.push({ uni, fase: Math.random() * 6.28 });
