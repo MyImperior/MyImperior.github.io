@@ -156,7 +156,7 @@ export async function montarArchivo(cfg) {
     let s = 7; const azar = () => ((s = (s * 16807) % 2147483647) / 2147483647); // siempre las mismas estrellas
     for (let i = 0; i < 260; i++) {
       const a = 0.08 + azar() * 0.35;
-      g.fillStyle = `rgba(190, 225, 235, ${a})`;
+      g.fillStyle = `rgba(245, 215, 175, ${a})`;
       g.fillRect(azar() * innerWidth, azar() * innerHeight, azar() < 0.9 ? 1 : 1.6, azar() < 0.9 ? 1 : 1.6);
     }
   }

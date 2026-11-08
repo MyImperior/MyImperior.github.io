@@ -22,8 +22,9 @@
        Mismo lenguaje que la sección Ciencia (css/archivo.css): líneas
        finas luminosas, esquinas en corchete, tipografía mono para datos. */
     #ficha {
-      --acento: #6fd3c6;               /* aguamarina de la paleta de ciencia, aclarado para que brille sobre negro */
-      --linea: rgba(111, 211, 198, .28);
+      --acento: #c98a3e;               /* ocre (el mismo que css/archivo.css) */
+      --naranja: #f0a050; --arena: #dccab0; --tenue: #8f7a5e;
+      --linea: rgba(201, 138, 62, .3);
       position: fixed; top: 50%; right: 4vw; width: 340px; max-height: 86vh; overflow-y: auto;
       transform: translate(24px, -50%); opacity: 0; pointer-events: none;
       transition: opacity .5s, transform .5s;
@@ -31,7 +32,7 @@
       background: linear-gradient(160deg, rgba(8, 18, 24, .78), rgba(4, 8, 12, .62));
       backdrop-filter: blur(6px);
       border: 1px solid var(--linea);
-      color: #cfe3ea; font: 300 13px/1.45 'Space Grotesk', Arial, sans-serif;
+      color: var(--arena); font: 300 13px/1.45 'Space Grotesk', Arial, sans-serif;
       scrollbar-width: thin; scrollbar-color: var(--linea) transparent;
     }
     #ficha.visible { opacity: 1; transform: translate(0, -50%); pointer-events: auto; }
@@ -43,34 +44,33 @@
         linear-gradient(var(--acento), var(--acento)) left top / 1px 14px no-repeat,
         linear-gradient(var(--acento), var(--acento)) right bottom / 14px 1px no-repeat,
         linear-gradient(var(--acento), var(--acento)) right bottom / 1px 14px no-repeat,
-        linear-gradient(160deg, rgba(8, 18, 24, .78), rgba(4, 8, 12, .62));
+        linear-gradient(160deg, rgba(26, 17, 9, .8), rgba(10, 7, 4, .65));
     }
     #ficha .cod { font: 300 11px 'JetBrains Mono', monospace; letter-spacing: .25em; color: var(--acento); text-transform: uppercase; }
-    #ficha h2 { font-weight: 400; font-size: 22px; letter-spacing: .02em; margin: 4px 0 2px; color: #eef7fa; }
-    #ficha .tipo { color: #8fa9b3; font-size: 12px; margin-bottom: 14px; }
+    #ficha h2 { font-weight: 400; font-size: 22px; letter-spacing: .02em; margin: 4px 0 2px; color: var(--naranja); }
+    #ficha .tipo { color: var(--tenue); font-size: 12px; margin-bottom: 14px; }
     #ficha .bloque { margin-top: 12px; }
     #ficha .bloque h3 {
-      font: 400 10px 'JetBrains Mono', monospace; letter-spacing: .3em; text-transform: uppercase; color: #7f98a2;
+      font: 400 10px 'JetBrains Mono', monospace; letter-spacing: .3em; text-transform: uppercase; color: var(--tenue);
       display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
     }
     #ficha .bloque h3::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--linea), transparent); }
     #ficha .fila { display: grid; grid-template-columns: 112px 1fr; gap: 10px; padding: 3px 0; }
-    #ficha .fila .k { color: #7f98a2; font-size: 12px; }
-    #ficha .fila .v { font: 300 12px/1.45 'JetBrains Mono', monospace; color: #dcecf1; }
-    #ficha .nota { font-size: 12px; color: #9fb6bf; margin-top: 6px; font-style: italic; }
+    #ficha .fila .k { color: var(--tenue); font-size: 12px; }
+    #ficha .fila .v { font: 300 12px/1.45 'JetBrains Mono', monospace; color: var(--naranja); }
     #descender {
       margin-top: 18px; width: 100%; padding: 11px 0; cursor: pointer;
-      background: transparent; color: var(--acento); border: 1px solid var(--acento);
+      background: transparent; color: var(--naranja); border: 1px solid var(--acento);
       font: 400 12px 'JetBrains Mono', monospace; letter-spacing: .35em; text-transform: uppercase;
-      box-shadow: 0 0 0 rgba(111, 211, 198, 0); transition: box-shadow .3s, background .3s, color .3s, border-color .3s;
+      box-shadow: 0 0 0 rgba(201, 138, 62, 0); transition: box-shadow .3s, background .3s, color .3s, border-color .3s;
     }
-    #descender:hover:not(:disabled) { background: rgba(111, 211, 198, .08); box-shadow: 0 0 18px rgba(111, 211, 198, .35); }
+    #descender:hover:not(:disabled) { background: rgba(201, 138, 62, .1); box-shadow: 0 0 18px rgba(240, 160, 80, .35); }
     #descender:disabled { cursor: default; }
     #veredicto { margin-top: 12px; font-size: 12.5px; display: none; padding: 10px 12px; border-left: 2px solid; }
-    #veredicto.mal { display: block; border-color: #e0794f; color: #f2c3ae; background: rgba(224, 121, 79, .07); }
-    #veredicto.bien { display: block; border-color: var(--acento); color: #c9f1ea; background: rgba(111, 211, 198, .07); }
+    #veredicto.mal { display: block; border-color: #d4553f; color: #f0b4a4; background: rgba(212, 85, 63, .08); }   /* rojo: lo único frío-cálido distinto del ocre */
+    #veredicto.bien { display: block; border-color: #ffc27e; color: #ffd9a8; background: rgba(255, 194, 126, .08); }
     #veredicto b { display: block; font: 400 11px 'JetBrains Mono', monospace; letter-spacing: .25em; margin-bottom: 4px; }
-    #ficha.abortado #descender { color: #e0794f; border-color: rgba(224, 121, 79, .5); }
+    #ficha.abortado #descender { color: #d4553f; border-color: rgba(212, 85, 63, .5); }
 
     /* fundido a negro al descender */
     #velo { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 1.2s; }
@@ -85,7 +85,7 @@
   </style>
 </head>
 <body>
-  <div id="ayuda">Solo uno de estos mundos te dejará descender · pincha un mundo para acercarte · arrastra para girar · pincha el vacío para volver</div>
+  <div id="ayuda">Solo un mundo te deja descender</div>
 
   <aside id="ficha" aria-live="polite">
     <div class="cod" id="f-cod"></div>
@@ -1007,98 +1007,98 @@
     const mundos = [
       { id: 'b', tex: '5-lava-sc.png', r: 0.35, dist: 12, incl: 0, color: 0xd1552e, luces: 30, rot: 'anclado',
         ficha: {
-          nombre: 'Mundo de lava', tipo: 'Rocoso, rico en hierro',
+          // Por qué: Casi en resonancia 3:2 con c: los tirones periódicos de su vecino lo amasan por dentro, como Júpiter hace con Ío.
+          nombre: 'Lava', tipo: 'Rocoso · hierro',
           radio: 0.70, masa: 0.36,
-          temperatura: '≈ 700 °C, igual de día que de noche (la atmósfera reparte el calor)',
-          atmosfera: '60 bar · CO₂ y SO₂',
-          agua: 'Ninguna',
+          temperatura: '≈ 700 °C',
+          atmosfera: '60 bar · CO₂, SO₂',
+          agua: 'No',
           magnetismo: 'Débil',
-          geologia: 'Vulcanismo global por calentamiento de marea',
-          nota: 'Casi en resonancia 3:2 con c: los tirones periódicos de su vecino lo amasan por dentro, como Júpiter hace con Ío.',
-          fallo: 'Superficie a 700 °C y 60 bar de presión: la sonda se funde en minutos.'
+          geologia: 'Volcanes (mareas)',
+          fallo: '700 °C y 60 bar. La sonda se funde.'
         } },
       { id: 'c', tex: '2-desertica-sc.png', r: 0.45, dist: 16, incl: 0, color: 0xc88a4a, luces: 120, rot: 'anclado',
         ficha: {
-          nombre: 'Mundo desértico', tipo: 'Rocoso, seco',
+          nombre: 'Desierto', tipo: 'Rocoso · seco',
           radio: 0.90, masa: 0.68,
-          temperatura: '+120 °C en la cara diurna · −90 °C en la nocturna',
-          atmosfera: '0,6 bar · N₂ y CO₂',
-          agua: 'Trazas de hielo atrapadas en la cara nocturna',
+          temperatura: '+120 °C día · −90 °C noche',
+          atmosfera: '0,6 bar · N₂, CO₂',
+          agua: 'Hielo en la cara oscura',
           magnetismo: 'Débil',
-          geologia: 'Sin tectónica de placas (corteza rígida)',
-          fallo: 'Cara diurna a 120 °C, nocturna a −90 °C, y vientos de más de 300 km/h en la franja templada del terminador.'
+          geologia: 'Sin placas',
+          fallo: '+120 °C / −90 °C. Vientos de 300 km/h.'
         } },
       { id: 'd', tex: '8-roca-sc.png', r: 0.30, dist: 20, incl: 14, color: 0x8a7f72, luces: 60, rot: '3:2',
         ficha: {
-          nombre: 'Mundo rocoso', tipo: 'Rocoso, sin atmósfera',
+          // Por qué: Órbita inclinada 14° y excéntrica (e ≈ 0,2): la perturbó el gigante. Esa excentricidad es la que lo dejó atrapado en la resonancia 3:2, como a Mercurio.
+          nombre: 'Roca', tipo: 'Rocoso · desnudo',
           radio: 0.60, masa: 0.15,
-          temperatura: '+180 °C de día · −170 °C de noche',
-          atmosfera: 'Ninguna (perdida hace mucho)',
-          agua: 'Ninguna',
-          magnetismo: 'Ninguno: su núcleo, pequeño, ya se ha solidificado',
+          temperatura: '+180 °C día · −170 °C noche',
+          atmosfera: 'No',
+          agua: 'No',
+          magnetismo: 'No',
           geologia: 'Inactiva',
-          nota: 'Órbita inclinada 14° y excéntrica (e ≈ 0,2): la perturbó el gigante. Esa excentricidad es la que lo dejó atrapado en la resonancia 3:2, como a Mercurio.',
-          fallo: 'Sin atmósfera ni campo magnético: radiación estelar directa y temperaturas de +180 °C a −170 °C.'
+          fallo: 'Sin aire ni escudo. Radiación directa.'
         } },
       { id: 'e', tex: '1-islas-sc.png', r: 0.50, dist: 26, incl: 0, color: 0x6fae7a, luces: 650, rot: 18,
         ficha: {
-          nombre: 'Mundo de islas', tipo: 'Rocoso, oceánico',
+          // Por qué: Está justo en el borde interior de la zona habitable de esta estrella (efecto invernadero desbocado a partir de 0,97 × la luz terrestre). Las mareas han frenado mucho su giro.
+          nombre: 'Islas', tipo: 'Rocoso · oceánico',
           radio: 1.00, masa: 0.85,
-          temperatura: '+52 °C de media',
-          atmosfera: '1,4 bar · N₂ con mucho vapor de agua',
-          agua: 'Océano global (92 %) con archipiélagos… perdiéndose',
-          magnetismo: 'Moderado (0,6 × Tierra)',
-          geologia: 'Tectónica activa',
-          nota: 'Está justo en el borde interior de la zona habitable de esta estrella (efecto invernadero desbocado a partir de 0,97 × la luz terrestre). Las mareas han frenado mucho su giro.',
-          fallo: 'Invernadero húmedo: 52 °C de media y vapor de agua en la alta atmósfera, donde la luz lo rompe y el hidrógeno escapa al espacio. Habitable para microbios, no para una colonia.'
+          temperatura: '+52 °C',
+          atmosfera: '1,4 bar · N₂, vapor',
+          agua: 'Océano global (92 %)',
+          magnetismo: '0,6 × Tierra',
+          geologia: 'Placas activas',
+          fallo: 'Invernadero húmedo. El océano escapa al espacio.'
         } },
       { id: 'f', tex: '4-templado-sc.png', r: 0.55, dist: 31, incl: 0, color: 0x7bbf8f, luces: 550, rot: 1.6, bueno: true,
         ficha: {
-          nombre: 'Mundo templado', tipo: 'Rocoso, oceánico y continental',
+          // Por qué: Análogo a Kepler-442b. Recibe menos luz que la Tierra; lo compensa una atmósfera más densa. Con el doble de presión, un 10 % de oxígeno equivale al aire que respiramos.
+          nombre: 'Templado', tipo: 'Rocoso · océanos y continentes',
           radio: 1.10, masa: 1.42,
-          temperatura: '+8 °C de media',
-          atmosfera: '2 bar · N₂ 89 %, O₂ 10 %, CO₂ 0,4 %',
-          agua: 'Océanos (61 % de la superficie) y casquetes polares',
-          magnetismo: 'Intenso (1,3 × Tierra)',
-          geologia: 'Tectónica de placas activa',
-          nota: 'Análogo a Kepler-442b. Recibe menos luz que la Tierra; lo compensa una atmósfera más densa. Con el doble de presión, un 10 % de oxígeno equivale al aire que respiramos.',
-          exito: 'Atmósfera respirable, agua líquida y magnetosfera que protege de la estrella.'
+          temperatura: '+8 °C',
+          atmosfera: '2 bar · N₂ 89 %, O₂ 10 %',
+          agua: 'Océanos (61 %)',
+          magnetismo: '1,3 × Tierra',
+          geologia: 'Placas activas',
+          exito: 'Aire, agua y escudo magnético.'
         } },
       { id: 'g', tex: '7-estepa-sc.png', r: 0.45, dist: 38, incl: 0, color: 0x9fae73, luces: 150, rot: 0.9,
         ficha: {
-          nombre: 'Mundo de estepa', tipo: 'Rocoso, frío y seco',
+          nombre: 'Estepa', tipo: 'Rocoso · frío',
           radio: 0.90, masa: 0.68,
-          temperatura: '−14 °C de media (sobre 0 °C solo en verano, cerca del ecuador)',
-          atmosfera: '3 bar · CO₂ 40 %, N₂ 60 %',
-          agua: 'Permafrost y lagos salados',
-          magnetismo: 'Débil (0,2 × Tierra)',
+          temperatura: '−14 °C',
+          atmosfera: '3 bar · CO₂ 40 %',
+          agua: 'Permafrost',
+          magnetismo: '0,2 × Tierra',
           geologia: 'Escasa',
-          fallo: 'Irrespirable: 40 % de CO₂ (por encima del 10 % es letal) y −14 °C de media. Tan lejos de la estrella, para no congelarse necesita tanto CO₂ que lo envenena.'
+          fallo: '40 % de CO₂: irrespirable.'
         } },
       { id: 'h', tex: '3-helado-sc.png', r: 0.40, dist: 46, incl: 0, color: 0xaccadf, luces: 40, rot: 1.3,
         ficha: {
-          nombre: 'Mundo helado', tipo: 'Rocoso, cubierto de hielo',
+          nombre: 'Hielo', tipo: 'Rocoso · helado',
           radio: 0.80, masa: 0.40,
-          temperatura: '−75 °C de media',
+          temperatura: '−75 °C',
           atmosfera: '0,4 bar · N₂',
-          agua: 'Corteza de hielo global; océano bajo 8 km de hielo',
+          agua: 'Océano bajo 8 km de hielo',
           magnetismo: 'Débil',
-          geologia: 'Criovulcanismo',
-          fallo: 'Planeta bola de nieve: −75 °C. Hay agua líquida, pero bajo 8 km de hielo.'
+          geologia: 'Criovolcanes',
+          fallo: '−75 °C. El agua, bajo 8 km de hielo.'
         } },
       // Gigante: masa de Saturno, a 0,95 UA (justo más allá de la línea de hielo, ~0,92 UA,
       // que es donde se forman los gigantes). Antes estaba en 58: con un helado a 46 la
       // órbita era inestable (2,9 radios de Hill mutuos). En 72 hay 8,2 → estable.
       { id: 'i', tex: '6-gaseoso1-sc.png', r: 1.40, dist: 72, incl: 0, color: 0xb79a6e, luces: 0, rot: 0.44, poloOscuro: 0.3,
         ficha: {
-          nombre: 'Gigante gaseoso', tipo: 'Gigante de hidrógeno y helio (masa de Saturno)',
+          nombre: 'Gigante', tipo: 'Gaseoso · masa de Saturno',
           radio: 9.4, masa: 95,
-          temperatura: '≈ −115 °C en el nivel de 1 bar',
+          temperatura: '≈ −115 °C (a 1 bar)',
           atmosfera: 'H₂ 88 %, He 12 %',
-          agua: 'Nubes de hielo de agua y amoniaco en profundidad',
-          magnetismo: 'Muy intenso (hidrógeno metálico en el interior)',
-          geologia: '— (no tiene superficie)',
-          fallo: 'No hay superficie: la sonda se hundiría hasta que la presión la aplastara.'
+          agua: 'Nubes profundas',
+          magnetismo: 'Muy intenso',
+          geologia: 'Sin superficie',
+          fallo: 'No hay suelo. La presión aplasta la sonda.'
         } }
     ];
 
@@ -1196,10 +1196,10 @@
 
     function textoRotacion(p) {
       const rot = p.m.rot;
-      if (rot === 'anclado') return 'Anclado por marea: siempre la misma cara hacia la estrella';
-      if (rot === '3:2') return `Resonancia 3:2 — un giro cada ${num(p.orb.periodo * 2 / 3, 0)} días`;
-      if (rot < 2) return `Libre — día de ${num(rot * 24, 0)} horas`;
-      return `Lenta — un giro cada ${num(rot, 0)} días`;
+      if (rot === 'anclado') return 'Anclado';
+      if (rot === '3:2') return `3:2 · ${num(p.orb.periodo * 2 / 3, 0)} d`;
+      if (rot < 2) return `${num(rot * 24, 0)} h`;
+      return `${num(rot, 0)} d`;
     }
 
     function filas(lista) {
@@ -1219,13 +1219,13 @@
           ['Masa', `${num(f.masa)} × Tierra`],
           ['Densidad', `${num(densidad, 1)} g/cm³`],
           ['Gravedad', `${num(gravedad)} g`],
-          ['Campo magnético', f.magnetismo],
-          ['Actividad geológica', f.geologia]
+          ['Magnetismo', f.magnetismo],
+          ['Geología', f.geologia]
         ])}</div>` +
         `<div class="bloque"><h3>Órbita</h3>${filas([
-          ['Distancia', `${num(p.orb.a, 3)} UA`],
-          ['Año', `${num(p.orb.periodo, 0)} días`],
-          ['Luz recibida', `${num(p.orb.flujo)} × la de la Tierra`],
+          ['Distancia', `${num(p.orb.a, 2)} UA`],
+          ['Año', `${num(p.orb.periodo, 0)} d`],
+          ['Luz', `${num(p.orb.flujo)} × Tierra`],
           ['Rotación', textoRotacion(p)]
         ])}</div>` +
         `<div class="bloque"><h3>Superficie</h3>${filas([
@@ -1233,7 +1233,7 @@
           ['Atmósfera', f.atmosfera],
           ['Agua', f.agua]
         ])}</div>` +
-        (f.nota ? `<p class="nota">${f.nota}</p>` : '');
+        '';
       fichaEl.classList.remove('abortado');
       veredictoEl.className = ''; veredictoEl.innerHTML = '';
       btnDescender.disabled = false; btnDescender.textContent = 'Descender';
@@ -1245,9 +1245,9 @@
 
     function mostrarAborto(p) {
       fichaEl.classList.add('abortado');
-      btnDescender.disabled = true; btnDescender.textContent = 'Descenso abortado';
+      btnDescender.disabled = true; btnDescender.textContent = 'Abortado';
       veredictoEl.className = 'mal';
-      veredictoEl.innerHTML = `<b>DESCENSO ABORTADO</b>${p.m.ficha.fallo}`;
+      veredictoEl.innerHTML = `<b>ABORTADO</b>${p.m.ficha.fallo}`;
       fichaEl.scrollTo({ top: fichaEl.scrollHeight, behavior: 'smooth' }); // que se lea el motivo aunque la ficha sea larga
     }
 
@@ -1255,9 +1255,9 @@
     btnDescender.addEventListener('click', () => {
       if (!enfocado || volando || descenso) return;
       if (!enfocado.m.bueno) { enfocado.abortado = true; mostrarAborto(enfocado); return; }
-      btnDescender.disabled = true; btnDescender.textContent = 'Descendiendo…';
+      btnDescender.disabled = true; btnDescender.textContent = 'Descendiendo';
       veredictoEl.className = 'bien';
-      veredictoEl.innerHTML = `<b>DESCENSO AUTORIZADO</b>${enfocado.m.ficha.exito}`;
+      veredictoEl.innerHTML = `<b>AUTORIZADO</b>${enfocado.m.ficha.exito}`;
       fichaEl.scrollTo({ top: fichaEl.scrollHeight, behavior: 'smooth' });
       guardarResuelto();
       descenso = { t: 0, d0: camara.position.distanceTo(enfocado.grupo.position) };
