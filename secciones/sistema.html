@@ -199,6 +199,8 @@
       halo:          1.0,       // brillo del halo (gradiente suave, el de la primera versión)
       espiculas:     1.0,       // chorros finos de plasma en el borde (0 = borde limpio)
       protuberancias: 1.0,      // brillo de las protuberancias (0 = ninguna)
+      bucles:        0.85,      // brillo de los bucles coronales entre manchas (0 = ninguno)
+      regionActiva:  1.0,       // brillo de la zona clara alrededor de las manchas (0 = ninguna)
       numProtuberancias: 6,     // cuántas existen repartidas por el sol (no todas se ven)
       giro:          0.048,     // giro del sol (radianes por segundo): 0.048 = una vuelta en ~2 min 10 s
       velocidad:     1.0        // ritmo al que hierve el grano y evolucionan las cosas
@@ -299,6 +301,7 @@
         uContGrano:{ value: SOL.grano },
         uManchasK: { value: SOL.manchas },
         uManchasL: { value: SOL.manchasLejos },
+        uRegAct:   { value: SOL.regionActiva },
         uManchas:  { value: manchas }
       },
       vertexShader: `
@@ -322,6 +325,7 @@
         uniform float uContGrano;
         uniform float uManchasK;
         uniform float uManchasL;
+        uniform float uRegAct;
         uniform vec4  uManchas[${MAX_MANCHAS}];
         varying vec3 vPos;
         varying vec3 vNormalV;
@@ -405,15 +409,16 @@
           for (int i = 0; i < ${MAX_MANCHAS}; i++) {
             vec4 m = uManchas[i];
             sombra = min(sombra, sombraMancha(p, m, float(i), t));
-            if (m.w > 0.0) act = max(act, exp(-pow(length(p - m.xyz) / (m.w * 3.5), 2.0)));
+            if (m.w > 0.0) act = max(act, exp(-pow(length(p - m.xyz) / (m.w * 4.5), 2.0)));
           }
           // lo oscuro de una mancha tira a pardo-rojizo (está más fría), no a gris
           col *= sombra * mix(vec3(0.95, 0.55, 0.40), vec3(1.0), smoothstep(0.2, 0.9, sombra));
 
-          // FÁCULAS: motas claras alrededor de las regiones activas, visibles solo
-          // cerca del borde (en el centro del disco no contrastan)
+          // REGIÓN ACTIVA (fáculas): zona clara y moteada alrededor de cada grupo.
+          // Se ve en todo el disco y destaca más hacia el borde. No aclara las manchas.
           float motas = smoothstep(0.15, 0.75, 0.5 + 0.5 * snoise(p * 28.0 + vec3(t * 0.03)));
-          col *= 1.0 + act * motas * pow(1.0 - mu, 1.3) * 0.45;
+          float plage = act * (0.35 + 0.65 * motas) * smoothstep(0.55, 0.95, sombra) * uRegAct;
+          col *= 1.0 + plage * (0.25 + 0.45 * pow(1.0 - mu, 1.3));
 
           // OSCURECIMIENTO DEL BORDE
           col *= 1.0 - uOscur * (1.0 - mu);
@@ -559,6 +564,77 @@
       return g;
     }
 
+    // Material de un haz de bucles (lo usan las protuberancias y los bucles de
+    // las regiones activas). uColor = tono; uOpDisco = opacidad sobre el disco;
+    // uTubo = grosor de cada bucle (proporción de la altura); aditivo = la luz
+    // se SUMA a lo que hay detrás (brilla) en vez de taparlo.
+    function materialHaz(uni, aditivo) {
+      return new THREE.ShaderMaterial({
+        uniforms: uni,
+        vertexShader: `
+        uniform vec3 uCentro, uTang;
+        uniform float uAncho, uAlto, uInclin, uSemilla, uRadio, uTubo;
+        attribute float aS, aLado;
+        attribute vec4 aBucle;   // profundidad, altura relativa, desplazamiento, semilla
+        varying float vLado, vS, vAltura;
+        varying vec3 vMundo;
+        varying float vSem;
+
+        // Punto del bucle a la fracción s (0 = un pie, 1 = el otro), en el sistema del sol
+        vec3 punto(float s) {
+          float anchoB = uAncho * (0.55 + 0.45 * aBucle.y);              // los bucles altos, más anchos
+          float ang = (aBucle.z + (s - 0.5) * 2.0) * anchoB;
+          vec3 dir = normalize(cos(ang) * uCentro + sin(ang) * uTang);
+          vec3 bin = normalize(cross(uCentro, uTang));                   // a través del haz
+          float x = 2.0 * s - 1.0;
+          float h = uAlto * aBucle.y * sqrt(max(0.0, 1.0 - x * x))
+                  * (1.0 + 0.12 * sin(s * 5.0 + aBucle.w + uSemilla));   // cada bucle algo irregular
+          float grosor = uAlto * 0.45;                                    // anchura del haz en profundidad
+          return dir * uRadio * (0.995 + h)
+               + bin * uRadio * (aBucle.x * grosor * (0.4 + 0.6 * sqrt(max(0.0, 1.0 - x * x))) + h * uInclin);
+        }
+
+        void main() {
+          vec3 p  = (modelMatrix * vec4(punto(aS), 1.0)).xyz;
+          vec3 pA = (modelMatrix * vec4(punto(max(aS - 0.01, 0.0)), 1.0)).xyz;
+          vec3 pB = (modelMatrix * vec4(punto(min(aS + 0.01, 1.0)), 1.0)).xyz;
+          vec3 tang = normalize(pB - pA + 1e-6);
+          vec3 hacia = normalize(cameraPosition - p);
+          vec3 lado = cross(tang, hacia);
+          lado = length(lado) > 1e-4 ? normalize(lado) : vec3(0.0, 1.0, 0.0);
+          float ancho = uRadio * uAlto * uTubo;                           // grosor de cada tubo
+          p += lado * aLado * ancho;
+          vLado = aLado; vS = aS; vAltura = aBucle.y; vSem = aBucle.w; vMundo = p;
+          gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
+        }
+      `,
+      fragmentShader: RUIDO_GLSL + `
+        uniform float uTiempo, uEnv, uBrillo, uSemilla, uRadio, uOpDisco;
+        uniform vec3 uColor;
+        varying float vLado, vS, vAltura, vSem;
+        varying vec3 vMundo;
+        void main() {
+          float tubo  = pow(1.0 - abs(vLado), 1.5);                              // centro brillante, bordes suaves → cilindro
+          float nudos = 0.55 + 0.45 * snoise(vec3(vS * 7.0 - uTiempo * 0.12, vSem, uSemilla)); // plasma que corre por el bucle
+          float pies  = smoothstep(0.0, 0.08, vS) * (1.0 - smoothstep(0.92, 1.0, vS));
+          float a = tubo * nudos * pies * (0.35 + 0.35 * vAltura) * uEnv;
+          if (a < 0.004) discard;
+          // sobre el disco, opacidad ajustable (uOpDisco)
+          vec3 rayo = normalize(vMundo - cameraPosition);
+          vec3 oc = -cameraPosition;
+          float tca = dot(oc, rayo);
+          float dist = sqrt(max(dot(oc, oc) - tca * tca, 0.0));
+          float sobreDisco = (1.0 - smoothstep(uRadio * 0.995, uRadio * 1.01, dist)) * step(0.0, tca);
+          gl_FragColor = vec4(uColor * uBrillo, a * mix(1.0, uOpDisco, sobreDisco));
+        }
+      `,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        blending: aditivo ? THREE.AdditiveBlending : THREE.NormalBlending
+      });
+    }
+
     for (let i = 0; i < SOL.numProtuberancias; i++) {
       const uni = {
         uTiempo,
@@ -570,74 +646,55 @@
         uSemilla: { value: Math.random() * 100 },
         uEnv:     { value: 0 },     // ciclo de vida: 0 apagada · 1 plena
         uBrillo:  { value: SOL.protuberancias },
-        uRadio:   { value: RADIO_SOL }
+        uRadio:   { value: RADIO_SOL },
+        uColor:   { value: new THREE.Vector3(0.55, 0.16, 0.05) }, // rojo anaranjado oscuro (plasma frío)
+        uOpDisco: { value: 0.75 },
+        uTubo:    { value: 0.06 }
       };
-      const mesh = new THREE.Mesh(geometriaHaz(), new THREE.ShaderMaterial({
-        uniforms: uni,
-        vertexShader: `
-          uniform vec3 uCentro, uTang;
-          uniform float uAncho, uAlto, uInclin, uSemilla, uRadio;
-          attribute float aS, aLado;
-          attribute vec4 aBucle;   // profundidad, altura relativa, desplazamiento, semilla
-          varying float vLado, vS, vAltura;
-          varying vec3 vMundo;
-          varying float vSem;
-
-          // Punto del bucle a la fracción s (0 = un pie, 1 = el otro), en el sistema del sol
-          vec3 punto(float s) {
-            float anchoB = uAncho * (0.55 + 0.45 * aBucle.y);              // los bucles altos, más anchos
-            float ang = (aBucle.z + (s - 0.5) * 2.0) * anchoB;
-            vec3 dir = normalize(cos(ang) * uCentro + sin(ang) * uTang);
-            vec3 bin = normalize(cross(uCentro, uTang));                   // a través del haz
-            float x = 2.0 * s - 1.0;
-            float h = uAlto * aBucle.y * sqrt(max(0.0, 1.0 - x * x))
-                    * (1.0 + 0.12 * sin(s * 5.0 + aBucle.w + uSemilla));   // cada bucle algo irregular
-            float grosor = uAlto * 0.45;                                    // anchura del haz en profundidad
-            return dir * uRadio * (0.995 + h)
-                 + bin * uRadio * (aBucle.x * grosor * (0.4 + 0.6 * sqrt(max(0.0, 1.0 - x * x))) + h * uInclin);
-          }
-
-          void main() {
-            vec3 p  = (modelMatrix * vec4(punto(aS), 1.0)).xyz;
-            vec3 pA = (modelMatrix * vec4(punto(max(aS - 0.01, 0.0)), 1.0)).xyz;
-            vec3 pB = (modelMatrix * vec4(punto(min(aS + 0.01, 1.0)), 1.0)).xyz;
-            vec3 tang = normalize(pB - pA + 1e-6);
-            vec3 hacia = normalize(cameraPosition - p);
-            vec3 lado = cross(tang, hacia);
-            lado = length(lado) > 1e-4 ? normalize(lado) : vec3(0.0, 1.0, 0.0);
-            float ancho = uRadio * uAlto * 0.06;                            // grosor de cada tubo
-            p += lado * aLado * ancho;
-            vLado = aLado; vS = aS; vAltura = aBucle.y; vSem = aBucle.w; vMundo = p;
-            gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
-          }
-        `,
-        fragmentShader: RUIDO_GLSL + `
-          uniform float uTiempo, uEnv, uBrillo, uSemilla, uRadio;
-          varying float vLado, vS, vAltura, vSem;
-          varying vec3 vMundo;
-          void main() {
-            float tubo  = pow(1.0 - abs(vLado), 1.5);                              // centro brillante, bordes suaves → cilindro
-            float nudos = 0.55 + 0.45 * snoise(vec3(vS * 7.0 - uTiempo * 0.12, vSem, uSemilla)); // plasma que corre por el bucle
-            float pies  = smoothstep(0.0, 0.08, vS) * (1.0 - smoothstep(0.92, 1.0, vS));
-            float a = tubo * nudos * pies * (0.35 + 0.35 * vAltura) * uEnv;
-            if (a < 0.004) discard;
-            // sobre el disco, algo más tenue (el mismo tono, sin volverse negro ni blanco)
-            vec3 rayo = normalize(vMundo - cameraPosition);
-            vec3 oc = -cameraPosition;
-            float tca = dot(oc, rayo);
-            float dist = sqrt(max(dot(oc, oc) - tca * tca, 0.0));
-            float sobreDisco = (1.0 - smoothstep(uRadio * 0.995, uRadio * 1.01, dist)) * step(0.0, tca);
-            vec3 col = vec3(0.55, 0.16, 0.05) * uBrillo;   // rojo anaranjado oscuro
-            gl_FragColor = vec4(col, a * mix(1.0, 0.75, sobreDisco));
-          }
-        `,
-        transparent: true,
-        depthWrite: false,
-        side: THREE.DoubleSide
-      }));
+      const mesh = new THREE.Mesh(geometriaHaz(), materialHaz(uni, false));
       mesh.frustumCulled = false; // la forma se calcula en el shader: el recorte automático no la conoce
       sol.add(mesh);
       prots.push({ uni, periodo: 150 + Math.random() * 100, desfase: Math.random(), k: -1 }); // viven ~1,5–2,5 min: les da tiempo a dar media vuelta o más con el sol
+    }
+
+    // ── 4) BUCLES CORONALES de las regiones activas ─────────────────
+    // Cada grupo de manchas es un imán: la líder tiene una polaridad y la
+    // seguidora la contraria. Las líneas de campo salen de una y entran en la
+    // otra, y el plasma muy caliente que queda atrapado en ellas brilla: son los
+    // bucles coronales. Por eso aquí cada haz une la LÍDER con su SEGUIDORA.
+    // Son permanentes (mientras existen las manchas), brillan (luz que se suma)
+    // y su brillo "respira" despacio. Hijos del sol → giran con él.
+    const bucles = [];
+    for (let g = 0; g < SOL.numGrupos && g * 3 + 1 < manchas.length; g++) {
+      const L = manchas[g * 3], F = manchas[g * 3 + 1];
+      if (L.w <= 0 || F.w <= 0) continue;
+      const l = new THREE.Vector3(L.x, L.y, L.z).normalize();
+      const fs = new THREE.Vector3(F.x, F.y, F.z).normalize();
+      const c = l.clone().add(fs).normalize();                       // punto medio entre las dos manchas
+      const t = fs.clone().sub(l); t.addScaledVector(c, -t.dot(c)).normalize(); // de la líder a la seguidora
+      const sep = l.angleTo(fs);
+      const uni = {
+        uTiempo,
+        uCentro:  { value: c },
+        uTang:    { value: t },
+        uAncho:   { value: sep * 0.85 },  // los pies, sobre las manchas y algo más allá (la región activa es mayor que las manchas)
+        uAlto:    { value: sep * 0.65 },  // altura proporcional a la separación (como los bucles reales)
+        uInclin:  { value: (Math.random() - 0.5) * 0.3 },
+        uSemilla: { value: Math.random() * 100 },
+        uEnv:     { value: 1 },
+        uBrillo:  { value: SOL.bucles },
+        uRadio:   { value: RADIO_SOL },
+        uColor:   { value: new THREE.Vector3(1.0, 0.72, 0.42) }, // plasma muy caliente: claro y cálido
+        uOpDisco: { value: 0.8 },
+        uTubo:    { value: 0.06 }
+      };
+      const mesh = new THREE.Mesh(geometriaHaz(), materialHaz(uni, true));
+      mesh.frustumCulled = false;
+      sol.add(mesh);
+      bucles.push({ uni, fase: Math.random() * 6.28 });
+    }
+    function actualizarBucles() {
+      for (const b of bucles) b.uni.uEnv.value = 0.75 + 0.25 * Math.sin(uTiempo.value * 0.15 + b.fase);
     }
 
     // Recolocar una protuberancia que (re)nace: dónde, orientación, tamaño
@@ -1038,6 +1095,7 @@
       uTiempo.value += dt * SOL.velocidad;
       sol.rotation.y -= SOL.giro * dt; // por segundos, no por fotogramas: igual en el Chromebook que en el PC
       actualizarProtuberancias();
+      actualizarBucles();
 
       planetas.forEach((p) => {
         p.angulo += p.velocidad;
