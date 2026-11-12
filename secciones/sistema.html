@@ -46,7 +46,7 @@
         linear-gradient(var(--acento), var(--acento)) right bottom / 1px 14px no-repeat,
         linear-gradient(160deg, rgba(26, 17, 9, .8), rgba(10, 7, 4, .65));
     }
-    #ficha .cod { font: 300 11px 'JetBrains Mono', monospace; letter-spacing: .25em; color: var(--acento); text-transform: uppercase; }
+    #ficha .cod { font: 300 11px 'JetBrains Mono', monospace; letter-spacing: .25em; color: var(--acento); }  /* sin mayúsculas: «Zetesis f», la letra va en minúscula */
     #ficha h2 { font-weight: 400; font-size: 22px; letter-spacing: .02em; margin: 4px 0 2px; color: var(--naranja); }
     #ficha .tipo { color: var(--tenue); font-size: 12px; margin-bottom: 14px; }
     #ficha .bloque { margin-top: 12px; }
@@ -79,7 +79,7 @@
     .etq .aro { width: 16px; height: 16px; margin: -9px 0 0 -9px; border: 1.5px solid #f0a050;
       border-radius: 50%; box-shadow: 0 0 8px rgba(240, 160, 80, .7); flex: none; }
     .etq .txt { margin-top: -9px; padding: 2px 7px; font: 400 11px 'JetBrains Mono', monospace;
-      letter-spacing: .18em; text-transform: uppercase; color: #ffd9a8;
+      letter-spacing: .12em; color: #ffd9a8;  /* sin mayúsculas: la letra del planeta va en minúscula */
       background: rgba(10, 8, 6, .55); border: 1px solid rgba(240, 160, 80, .45); }
     .etq:hover .aro { background: rgba(240, 160, 80, .35); }
     .etq:hover .txt { color: #fff; border-color: #f0a050; }
@@ -1040,6 +1040,9 @@
     //  La escala se fija haciendo que el planeta f (templado, dist 31)
     //  esté donde Kepler-442b: 0,409 UA.
     // ════════════════════════════════════════════════════════════
+    // Nombre inventado: ζήτησις (zétesis), «búsqueda, indagación» en griego. Los
+    // planetas se llaman como en la convención real: estrella + letra (b, c, d…).
+    const NOMBRE_ESTRELLA = 'Zetesis';
     const ESTRELLA = { masa: 0.61, luminosidad: 0.117 };   // en masas y luminosidades solares
     const UA_POR_UNIDAD = 0.409 / 31;
 
@@ -1295,7 +1298,7 @@
       const f = p.m.ficha;
       const densidad = 5.51 * f.masa / f.radio ** 3;   // g/cm³ (5,51 = densidad de la Tierra)
       const gravedad = f.masa / f.radio ** 2;          // en g terrestres
-      $('f-cod').textContent = `Planeta ${p.m.id}`;
+      $('f-cod').textContent = `${NOMBRE_ESTRELLA} ${p.m.id}`;
       $('f-nombre').textContent = f.nombre;
       $('f-tipo').textContent = f.tipo;
       $('f-datos').innerHTML =
@@ -1517,7 +1520,7 @@
       for (const p of planetas) {
         const el = document.createElement('div');
         el.className = 'etq';
-        el.innerHTML = `<span class="aro"></span><span class="txt">${p.m.ficha.nombre}</span>`;
+        el.innerHTML = `<span class="aro"></span><span class="txt">${NOMBRE_ESTRELLA} ${p.m.id}</span>`;
         el.addEventListener('click', (e) => { e.stopPropagation(); irAPlaneta(p); });
         cont.appendChild(el);
         etiquetas.push({ p, el });
