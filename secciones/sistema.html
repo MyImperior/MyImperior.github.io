@@ -276,7 +276,22 @@
     //
     //  Los colores que se escriben aquí son los que se VEN en pantalla.
     // ════════════════════════════════════════════════════════════
-    const RADIO_SOL = 6.0;
+    const RADIO_SOL = 6.0;   // radio con el que se DIBUJA la estrella (su geometría y efectos se definen con él)
+
+    // ── PRUEBA DE ESCALA (para revertir, poner ambos a false) ─────────
+    // ESCALA_REAL  → planetas a tamaño real RESPECTO A LA ESTRELLA (+ etiquetas).
+    // ESCALA_TOTAL → además la estrella (y con ella los planetas) a tamaño real
+    //                RESPECTO A LAS ÓRBITAS: todo encoge ~25 veces. Es la escala
+    //                real completa: puntos diminutos separados por distancias enormes.
+    const ESCALA_REAL  = true;
+    const ESCALA_TOTAL = true;
+    const RADIO_ESTRELLA = 0.67;            // en radios solares (estrella K de 0,61 masas solares)
+    const UA_POR_UNIDAD = 0.409 / 31;       // escala de la escena: el planeta f (dist 31) está a 0,409 UA
+    const SOLES_POR_UA = 215.03;            // 1 UA = 215 radios solares
+    // Radio de la estrella en la escena: 6 (exagerado) o el real (~0,24)
+    const RADIO_VISIBLE = ESCALA_TOTAL ? RADIO_ESTRELLA / SOLES_POR_UA / UA_POR_UNIDAD : RADIO_SOL;
+    const K_SOL = RADIO_VISIBLE / RADIO_SOL;   // cuánto se encoge la estrella al dibujarla
+    const uEscala = { value: K_SOL };
 
     // ── MANDOS DEL SOL (ajustar a ojo) ─────────────────────────────
     const SOL = {
@@ -287,8 +302,8 @@
                                 //   En H-alfa casi no hay (0.3 = elección de Marcos, como sus fotos de referencia)
       grano:         1.0,       // contraste de la granulación al acercarse (0 = sin grano)
       red:           1.0,       // contraste de la red de celdas visible a cualquier distancia (0 = disco liso)
-      granoDesde:    30,        // distancia a la que el grano empieza a verse
-      granoPleno:    18,        // distancia a la que se ve del todo (la cámara llega a 12)
+      granoDesde:    30 * K_SOL, // distancia a la que el grano empieza a verse
+      granoPleno:    18 * K_SOL, // distancia a la que se ve del todo (la cámara llega a 2 radios)
       manchas:       1.0,       // contraste de las manchas de cerca (1 = real)
       manchasLejos:  0.4,       // fracción de ese contraste que queda de lejos (se atenúan con el grano)
       numGrupos:     5,         // grupos de manchas (líder + seguidora + poro), máximo 6
@@ -558,6 +573,8 @@
       `
     });
     const sol = new THREE.Mesh(new THREE.SphereGeometry(RADIO_SOL, 128, 128), matSol);
+    sol.scale.setScalar(K_SOL);              // tamaño real si ESCALA_TOTAL (protuberancias y bucles, hijos, encogen con él)
+    controls.minDistance = 2 * RADIO_VISIBLE;
     escena.add(sol);
 
     // ── 2) BORDE: FRANJA TURBULENTA ────────────────────────────────
@@ -635,6 +652,7 @@
         blending: THREE.AdditiveBlending
       })
     );
+    corona.scale.setScalar(K_SOL);
     escena.add(corona);
     uniCorona.uColorEsp.value = vec3DeHex(SOL.colorFlares);
 
@@ -687,11 +705,12 @@
     // se SUMA a lo que hay detrás (brilla) en vez de taparlo.
     function materialHaz(uni, aditivo) {
       uni.uAltoPant = uAltoPant;
+      uni.uEscala = uEscala;
       return new THREE.ShaderMaterial({
         uniforms: uni,
         vertexShader: `
         uniform vec3 uCentro, uTang;
-        uniform float uAncho, uAlto, uInclin, uSemilla, uRadio, uTubo;
+        uniform float uAncho, uAlto, uInclin, uSemilla, uRadio, uTubo, uEscala;
         attribute float aS, aLado;
         attribute vec4 aBucle;   // profundidad, altura relativa, desplazamiento, semilla
         varying float vLado, vS, vAltura, vAtenua;
@@ -721,7 +740,7 @@
           vec3 hacia = normalize(cameraPosition - p);
           vec3 lado = cross(tang, hacia);
           lado = length(lado) > 1e-4 ? normalize(lado) : vec3(0.0, 1.0, 0.0);
-          float ancho = uRadio * uAlto * uTubo;                           // grosor de cada tubo
+          float ancho = uRadio * uEscala * uAlto * uTubo;                 // grosor de cada tubo (en el mundo)
           // grosor mínimo de ~1,5 píxeles en pantalla; si el tubo real es más fino,
           // se dibuja a 1,5 px y más transparente (no parpadea al moverse)
           float w = (viewMatrix * vec4(p, 1.0)).z;
@@ -735,7 +754,7 @@
         }
       `,
       fragmentShader: RUIDO_GLSL + `
-        uniform float uTiempo, uEnv, uBrillo, uSemilla, uRadio, uOpDisco;
+        uniform float uTiempo, uEnv, uBrillo, uSemilla, uRadio, uOpDisco, uEscala;
         uniform vec3 uColor;
         varying float vLado, vS, vAltura, vSem, vAtenua;
         varying vec3 vMundo;
@@ -750,7 +769,7 @@
           vec3 oc = -cameraPosition;
           float tca = dot(oc, rayo);
           float dist = sqrt(max(dot(oc, oc) - tca * tca, 0.0));
-          float sobreDisco = (1.0 - smoothstep(uRadio * 0.995, uRadio * 1.01, dist)) * step(0.0, tca);
+          float sobreDisco = (1.0 - smoothstep(uRadio * uEscala * 0.995, uRadio * uEscala * 1.01, dist)) * step(0.0, tca);
           gl_FragColor = vec4(uColor * uBrillo, a * mix(1.0, uOpDisco, sobreDisco));
         }
       `,
@@ -940,8 +959,19 @@
       map: texturaHalo(), color: 0xffcc88, opacity: 0.345 * SOL.halo, // 0.3 + 15 %
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
     }));
-    haloSol.scale.setScalar(RADIO_SOL * ESCALA_HALO);
+    haloSol.scale.setScalar(RADIO_VISIBLE * ESCALA_HALO);
     escena.add(haloSol);
+
+    // Con la estrella a escala real, de lejos es un disco de pocos píxeles: un
+    // resplandor de TAMAÑO FIJO EN PANTALLA (como una estrella en una foto) la
+    // hace localizable. Se apaga al acercarse, cuando el disco ya se ve.
+    const puntoSol = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: texturaHalo(), color: 0xffcc88, opacity: 0, sizeAttenuation: false,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+    }));
+    puntoSol.scale.setScalar(0.09);
+    puntoSol.visible = ESCALA_TOTAL;
+    escena.add(puntoSol);
 
     const luzSol = new THREE.PointLight(0xffd9a0, 4, 3000, 0.08);
     escena.add(luzSol);
@@ -1044,7 +1074,7 @@
     // planetas se llaman como en la convención real: estrella + letra (b, c, d…).
     const NOMBRE_ESTRELLA = 'Zetesis';
     const ESTRELLA = { masa: 0.61, luminosidad: 0.117 };   // en masas y luminosidades solares
-    const UA_POR_UNIDAD = 0.409 / 31;
+    // (UA_POR_UNIDAD está definido arriba, junto a la PRUEBA DE ESCALA)
 
     // TIEMPO: un único reloj para órbitas Y rotaciones, para que las
     // proporciones entre ambas sean las reales (p. ej. la resonancia 3:2
@@ -1077,18 +1107,11 @@
     //          y gravedad se calculan a partir de ellos).
     //  bueno   el único donde el descenso funciona
     // ════════════════════════════════════════════════════════════
-    // ── PRUEBA: TAMAÑOS REALES ──────────────────────────────────────
-    // true  → planetas y estrella en su proporción REAL de tamaño (a partir del
-    //         radio de cada ficha, en Tierras). Los planetas se ven diminutos,
-    //         así que se muestra una etiqueta con su nombre (pincharla = ir).
-    // false → tamaños de antes (columna r) y sin etiquetas.
-    // OJO: solo cambian los TAMAÑOS; las distancias siguen comprimidas (a escala
-    // real los planetas estarían a decenas o cientos de radios de la estrella).
-    const ESCALA_REAL = true;
-    const RADIO_ESTRELLA = 0.67;            // en radios solares (estrella K de 0,61 masas solares)
+    // Radio de cada planeta en la escena (ver PRUEBA DE ESCALA, arriba):
+    // con ESCALA_REAL, proporcional a la estrella según ficha.radio (en Tierras).
     const TIERRAS_POR_SOL = 109.1;          // radio del Sol / radio de la Tierra
     function radioEnEscena(m) {
-      return ESCALA_REAL ? RADIO_SOL * m.ficha.radio / (TIERRAS_POR_SOL * RADIO_ESTRELLA) : m.r;
+      return ESCALA_REAL ? RADIO_VISIBLE * m.ficha.radio / (TIERRAS_POR_SOL * RADIO_ESTRELLA) : m.r;
     }
 
     const mundos = [
@@ -1540,7 +1563,7 @@
           const dPl = aCam.length(); aCam.divideScalar(dPl);
           const tca = -camara.position.dot(aCam);
           const d2 = camara.position.lengthSq() - tca * tca;
-          if (tca > 0 && tca < dPl && d2 < RADIO_SOL * RADIO_SOL) oculta = true;
+          if (tca > 0 && tca < dPl && d2 < RADIO_VISIBLE * RADIO_VISIBLE) oculta = true;
         }
         el.classList.toggle('fuera', oculta);
         if (!oculta) el.style.transform = `translate(${((vEtq.x + 1) / 2 * ancho).toFixed(1)}px, ${((1 - vEtq.y) / 2 * alto).toFixed(1)}px)`;
@@ -1664,14 +1687,16 @@
       // El contorno que vemos NO es el ecuador de la esfera: es un círculo
       // tangente, algo por delante del centro (a R²/D) y algo menor (R/uK).
       // El plano se coloca ahí, perpendicular a la línea sol→cámara.
-      uniCorona.uK.value = D / Math.sqrt(Math.max(D * D - RADIO_SOL * RADIO_SOL, 1e-3));
+      uniCorona.uK.value = D / Math.sqrt(Math.max(D * D - RADIO_VISIBLE * RADIO_VISIBLE, 1e-9));
       haciaCam.subVectors(camara.position, sol.position).normalize();
-      corona.position.copy(sol.position).addScaledVector(haciaCam, RADIO_SOL * RADIO_SOL / D);
+      corona.position.copy(sol.position).addScaledVector(haciaCam, RADIO_VISIBLE * RADIO_VISIBLE / D);
       corona.up.set(0, 1, 0).applyQuaternion(camara.quaternion); // mismo "arriba" que la cámara (sin giros raros)
       corona.lookAt(camara.position);
       // radio aparente del sol en píxeles (para apagar las espículas cuando son menores que un píxel)
-      const angSol = Math.asin(Math.min(RADIO_SOL / D, 1));
+      const angSol = Math.asin(Math.min(RADIO_VISIBLE / D, 1));
       uniCorona.uRadioPx.value = Math.tan(angSol) / Math.tan(THREE.MathUtils.degToRad(camara.fov / 2)) * window.innerHeight / 2;
+      // resplandor de tamaño fijo: pleno con el disco pequeño (< 6 px de radio), nada a partir de 40 px
+      puntoSol.material.opacity = 0.55 * SOL.halo * (1 - THREE.MathUtils.smoothstep(uniCorona.uRadioPx.value, 6, 40));
       // ─── Grano: aparece al acercarse ───
       uGrano.value = 1 - THREE.MathUtils.smoothstep(D, SOL.granoPleno, SOL.granoDesde);
 
