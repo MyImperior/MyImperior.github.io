@@ -72,6 +72,19 @@
     #veredicto b { display: block; font: 400 11px 'JetBrains Mono', monospace; letter-spacing: .25em; margin-bottom: 4px; }
     #ficha.abortado #descender { color: #d4553f; border-color: rgba(212, 85, 63, .5); }
 
+    /* ── ETIQUETAS de planetas (prueba de tamaños reales) ── */
+    #etiquetas { position: fixed; inset: 0; pointer-events: none; }
+    .etq { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer;
+      display: flex; align-items: center; gap: 8px; white-space: nowrap; user-select: none; }
+    .etq .aro { width: 16px; height: 16px; margin: -9px 0 0 -9px; border: 1.5px solid #f0a050;
+      border-radius: 50%; box-shadow: 0 0 8px rgba(240, 160, 80, .7); flex: none; }
+    .etq .txt { margin-top: -9px; padding: 2px 7px; font: 400 11px 'JetBrains Mono', monospace;
+      letter-spacing: .18em; text-transform: uppercase; color: #ffd9a8;
+      background: rgba(10, 8, 6, .55); border: 1px solid rgba(240, 160, 80, .45); }
+    .etq:hover .aro { background: rgba(240, 160, 80, .35); }
+    .etq:hover .txt { color: #fff; border-color: #f0a050; }
+    .etq.fuera { display: none; }
+
     /* fundido a negro al descender */
     #velo { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 1.2s; }
     #velo.on { opacity: 1; }
@@ -96,6 +109,7 @@
     <div id="veredicto"></div>
   </aside>
   <div id="velo"></div>
+  <div id="etiquetas"></div>
 
   <script type="importmap">
   {
@@ -1047,8 +1061,8 @@
     //  pegado a la estrella, al más frío en el exterior)
     //
     //  id      letra según la convención real de exoplanetas (b, c, d… por distancia)
-    //  r       radio EN LA ESCENA (proporciones aún pendientes de decidir:
-    //          los rocosos están exagerados respecto a la estrella)
+    //  r       radio EN LA ESCENA cuando ESCALA_REAL = false (los rocosos,
+    //          exagerados respecto a la estrella). Con ESCALA_REAL = true se usa ficha.radio
     //  dist    distancia orbital en la escena
     //  incl    inclinación de la órbita (grados)
     //  luces   nº de luces de ciudad (apagadas hasta resolver el juego)
@@ -1060,6 +1074,20 @@
     //          y gravedad se calculan a partir de ellos).
     //  bueno   el único donde el descenso funciona
     // ════════════════════════════════════════════════════════════
+    // ── PRUEBA: TAMAÑOS REALES ──────────────────────────────────────
+    // true  → planetas y estrella en su proporción REAL de tamaño (a partir del
+    //         radio de cada ficha, en Tierras). Los planetas se ven diminutos,
+    //         así que se muestra una etiqueta con su nombre (pincharla = ir).
+    // false → tamaños de antes (columna r) y sin etiquetas.
+    // OJO: solo cambian los TAMAÑOS; las distancias siguen comprimidas (a escala
+    // real los planetas estarían a decenas o cientos de radios de la estrella).
+    const ESCALA_REAL = true;
+    const RADIO_ESTRELLA = 0.67;            // en radios solares (estrella K de 0,61 masas solares)
+    const TIERRAS_POR_SOL = 109.1;          // radio del Sol / radio de la Tierra
+    function radioEnEscena(m) {
+      return ESCALA_REAL ? RADIO_SOL * m.ficha.radio / (TIERRAS_POR_SOL * RADIO_ESTRELLA) : m.r;
+    }
+
     const mundos = [
       { id: 'b', tex: '5-lava-sc.png', r: 0.35, dist: 12, incl: 0, color: 0xd1552e, luces: 30, rot: 'anclado',
         ficha: {
@@ -1203,8 +1231,9 @@
 
       const tex = cargador.load('../imagenes/sistema/' + m.tex);
       tex.colorSpace = THREE.SRGBColorSpace;
+      const rEsc = radioEnEscena(m);
       const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(m.r, 64, 64),
+        new THREE.SphereGeometry(rEsc, 64, 64),
         new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 })
       );
       aplicarCasquetes(mesh.material, m.poloOscuro || 0); // polos sin estirar
@@ -1215,7 +1244,7 @@
       // Luces nocturnas pegadas a la superficie (hijas del mesh → rotan con él)
       let luces = null;
       if (m.luces > 0) {
-        luces = crearLucesNocturnas(m.r * 1.0015, m.luces);
+        luces = crearLucesNocturnas(rEsc * 1.0015, m.luces);
         mesh.add(luces);
       }
 
@@ -1235,7 +1264,7 @@
         velocidad: 2 * Math.PI * DIAS_POR_SEGUNDO / orb.periodo,
         giro: m.rot === 'anclado' ? 0 : 2 * Math.PI * DIAS_POR_SEGUNDO / periodoRot,
         anclado: m.rot === 'anclado',
-        r: m.r
+        r: rEsc
       });
     });
 
@@ -1449,6 +1478,15 @@
       velGiro.theta = velGiro.phi = 0;
     }
 
+    function irAPlaneta(p) {
+      if (descenso || p === enfocado) return;
+      // Punto de partida del vuelo: desde donde MIRAMOS ahora. Si ya estábamos
+      // en un planeta (o volando) es miraFoco; en la vista general, el centro
+      // de OrbitControls. (Antes siempre se tomaba éste → el salto al sol.)
+      entryMira.copy(enfocado || volando ? miraFoco : controls.target);
+      enfocado = p; empezarVuelo(); ocultarFicha(); ayudaEl.classList.add('oculta');
+    }
+
     // Distinguir un clic real de un arrastre de los controles de cámara
     let abajoX = 0, abajoY = 0;
     renderer.domElement.addEventListener('pointerdown', (e) => { abajoX = e.clientX; abajoY = e.clientY; });
@@ -1462,19 +1500,49 @@
       ray.setFromCamera(raton, camara);
       const hit = ray.intersectObjects(planetas.map(p => p.mesh), false);
       if (hit.length) {
-        const p = planetas.find(pp => pp.mesh === hit[0].object);
-        if (p !== enfocado) {
-          // Punto de partida del vuelo: desde donde MIRAMOS ahora. Si ya estábamos
-          // en un planeta (o volando) es miraFoco; en la vista general, el centro
-          // de OrbitControls. (Antes siempre se tomaba éste → el salto al sol.)
-          entryMira.copy(enfocado || volando ? miraFoco : controls.target);
-          enfocado = p; empezarVuelo(); ocultarFicha(); ayudaEl.classList.add('oculta');
-        }
+        irAPlaneta(planetas.find(pp => pp.mesh === hit[0].object));
       } else if (enfocado) {
         entryMira.copy(miraFoco);
         enfocado = null; empezarVuelo(); ocultarFicha(); ayudaEl.classList.remove('oculta'); // volver a la vista general
       }
     });
+
+    // ── ETIQUETAS (solo con ESCALA_REAL) ──────────────────────────────
+    // Un aro y el nombre junto a cada planeta, en HTML encima de la escena.
+    // Se ocultan detrás de la cámara, tapadas por la estrella, la del planeta
+    // en el que estás y durante el descenso. Pinchar una = ir a ese planeta.
+    const etiquetas = [];
+    if (ESCALA_REAL) {
+      const cont = $('etiquetas');
+      for (const p of planetas) {
+        const el = document.createElement('div');
+        el.className = 'etq';
+        el.innerHTML = `<span class="aro"></span><span class="txt">${p.m.ficha.nombre}</span>`;
+        el.addEventListener('click', (e) => { e.stopPropagation(); irAPlaneta(p); });
+        cont.appendChild(el);
+        etiquetas.push({ p, el });
+      }
+    }
+    const vEtq = new THREE.Vector3(), aCam = new THREE.Vector3();
+    function actualizarEtiquetas() {
+      if (!etiquetas.length) return;
+      const ancho = window.innerWidth, alto = window.innerHeight;
+      for (const { p, el } of etiquetas) {
+        const pos = p.grupo.position;
+        vEtq.copy(pos).project(camara);
+        let oculta = !!descenso || p === enfocado || vEtq.z > 1 || Math.abs(vEtq.x) > 1.1 || Math.abs(vEtq.y) > 1.1;
+        if (!oculta) {
+          // ¿la estrella (esfera en el origen) se interpone entre la cámara y el planeta?
+          aCam.subVectors(pos, camara.position);
+          const dPl = aCam.length(); aCam.divideScalar(dPl);
+          const tca = -camara.position.dot(aCam);
+          const d2 = camara.position.lengthSq() - tca * tca;
+          if (tca > 0 && tca < dPl && d2 < RADIO_SOL * RADIO_SOL) oculta = true;
+        }
+        el.classList.toggle('fuera', oculta);
+        if (!oculta) el.style.transform = `translate(${((vEtq.x + 1) / 2 * ancho).toFixed(1)}px, ${((1 - vEtq.y) / 2 * alto).toFixed(1)}px)`;
+      }
+    }
 
     // ════════════════════════════════════════════════════════════
     //  BUCLE
@@ -1603,6 +1671,14 @@
       uniCorona.uRadioPx.value = Math.tan(angSol) / Math.tan(THREE.MathUtils.degToRad(camara.fov / 2)) * window.innerHeight / 2;
       // ─── Grano: aparece al acercarse ───
       uGrano.value = 1 - THREE.MathUtils.smoothstep(D, SOL.granoPleno, SOL.granoDesde);
+
+      actualizarEtiquetas();
+      // Plano de corte cercano: con planetas diminutos la cámara se pone muy
+      // cerca de la superficie; si no se acerca también, el planeta se "corta".
+      const cerca = enfocado
+        ? THREE.MathUtils.clamp((camara.position.distanceTo(enfocado.grupo.position) - enfocado.r) * 0.5, 0.002, 0.1)
+        : 0.1;
+      if (Math.abs(cerca - camara.near) > 1e-4) { camara.near = cerca; camara.updateProjectionMatrix(); }
 
       renderer.render(escena, camara);
     }
