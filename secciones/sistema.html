@@ -153,6 +153,10 @@
     controls.minDistance = 12; // = 2 × radio del sol: impide meter la cámara DENTRO de la estrella
     controls.maxDistance = 400;
     controls.enableRotate = false; // el giro lo hace el código propio de "eje bloqueado" (ver INTERACCIÓN)
+    // Sin desplazamiento lateral: el sol es SIEMPRE el centro de giro. (Con el botón
+    // derecho, o pulsando con dos dedos en el touchpad, el centro se separaba del sol
+    // y luego, al girar, el sol bailaba de lado a lado.)
+    controls.enablePan = false;
     controls.target.copy(MIRADA_GENERAL);
     controls.update();
 
