@@ -25,7 +25,7 @@
       --acento: #c98a3e;               /* ocre (el mismo que css/archivo.css) */
       --naranja: #f0a050; --arena: #dccab0; --tenue: #8f7a5e;
       --linea: rgba(201, 138, 62, .3);
-      position: fixed; top: 50%; right: 4vw; width: 340px; max-height: 86vh; overflow-y: auto;
+      position: fixed; top: 50%; right: 19vw; width: 340px;  /* 19vw = antes 4vw + 15 % de la pantalla */ max-height: 86vh; overflow-y: auto;
       transform: translate(24px, -50%); opacity: 0; pointer-events: none;
       transition: opacity .5s, transform .5s;
       padding: 22px 22px 18px;
@@ -75,10 +75,12 @@
     /* ── ETIQUETAS de planetas (prueba de tamaños reales) ── */
     #etiquetas { position: fixed; inset: 0; pointer-events: none; }
     #ficha { z-index: 2; }   /* los aros pasan POR DEBAJO de la ficha, no encima */
-    .etq { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer;
-      display: flex; align-items: center; gap: 8px; white-space: nowrap; user-select: none; }
-    .etq .aro { width: 16px; height: 16px; margin: -9px 0 0 -9px; border: 1.5px solid #f0a050;
-      border-radius: 50%; box-shadow: 0 0 8px rgba(240, 160, 80, .7); flex: none; }
+    /* .etq es un punto (0×0) en el centro del planeta; el aro y la zona de
+       clic se centran en él. El TAMAÑO del aro lo pone el JS en cada fotograma. */
+    .etq { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: auto; cursor: pointer; user-select: none; }
+    .etq::before { content: ''; position: absolute; left: -12px; top: -12px; width: 24px; height: 24px; } /* zona de clic mínima: aunque el aro sea diminuto */
+    .etq .aro { position: absolute; box-sizing: border-box; border: 1.5px solid #f0a050;
+      border-radius: 50%; box-shadow: 0 0 8px rgba(240, 160, 80, .7); }
     .etq:hover .aro { background: rgba(240, 160, 80, .35); }
     .etq.fuera { display: none; }
 
@@ -1613,6 +1615,18 @@
       }
     }
     const vEtq = new THREE.Vector3(), aCam = new THREE.Vector3();
+    // Tamaño del aro, en píxeles de RADIO:
+    //  - Si el planeta se ve grande, el aro lo abraza (1,5 × su radio aparente).
+    //  - Si se ve diminuto (casi siempre: a escala real son ~1 px), hay un
+    //    mínimo que depende de la distancia: más lejos → aro más pequeño.
+    //  - Cuando el planeta ya se ve bien (radio > 25 px) el aro se desvanece:
+    //    no hace falta señalar lo que ya es evidente.
+    const ARO = {
+      abrazo: 1.5,            // aro = 1,5 × radio aparente del planeta
+      minK: 650,              // mínimo = minK / distancia (px)…
+      minDe: 3, minA: 11,     // …limitado entre 3 y 11 px
+      fundeDe: 25, fundeA: 60 // se desvanece entre 25 y 60 px de radio del planeta
+    };
     function actualizarEtiquetas() {
       if (!etiquetas.length) return;
       const ancho = window.innerWidth, alto = window.innerHeight;
@@ -1628,8 +1642,21 @@
           const d2 = camara.position.lengthSq() - tca * tca;
           if (tca > 0 && tca < dPl && d2 < RADIO_VISIBLE * RADIO_VISIBLE) oculta = true;
         }
+        let rPx = 0, opac = 1;
+        if (!oculta) {
+          const dist = camara.position.distanceTo(pos);
+          const rPlaneta = p.r / (dist * Math.tan(THREE.MathUtils.degToRad(camara.fov / 2))) * alto / 2; // radio aparente (px)
+          rPx = Math.max(ARO.abrazo * rPlaneta, THREE.MathUtils.clamp(ARO.minK / dist, ARO.minDe, ARO.minA));
+          opac = 1 - THREE.MathUtils.smoothstep(rPlaneta, ARO.fundeDe, ARO.fundeA);
+          if (opac < 0.02) oculta = true;
+        }
         el.classList.toggle('fuera', oculta);
-        if (!oculta) el.style.transform = `translate(${((vEtq.x + 1) / 2 * ancho).toFixed(1)}px, ${((1 - vEtq.y) / 2 * alto).toFixed(1)}px)`;
+        if (!oculta) {
+          el.style.transform = `translate(${((vEtq.x + 1) / 2 * ancho).toFixed(1)}px, ${((1 - vEtq.y) / 2 * alto).toFixed(1)}px)`;
+          const aro = el.firstChild, d = (2 * rPx).toFixed(1) + 'px', m = (-rPx).toFixed(1) + 'px';
+          aro.style.width = aro.style.height = d; aro.style.left = aro.style.top = m;
+          el.style.opacity = opac.toFixed(2);
+        }
       }
     }
 
@@ -1645,6 +1672,29 @@
 
     // Duración de los vuelos en SEGUNDOS (igual en cualquier ordenador, vaya a los fps que vaya)
     const VUELO = { ir: 1.4, volver: 1.6 };
+
+    // ENCUADRE CON FICHA: con la ficha abierta, la vista se desliza a la
+    // izquierda para que el planeta (o la estrella) quede centrado en el
+    // hueco libre y la ficha no lo tape. Técnica: setViewOffset = "recortar"
+    // la imagen desplazada; no mueve la cámara, así que el giro y el zoom
+    // siguen funcionando igual. Para quitarlo: DESPLAZAR_ENCUADRE = false.
+    const DESPLAZAR_ENCUADRE = true;
+    let desplaz = 0;   // píxeles que se desplaza la vista ahora mismo
+    function encuadreFicha(dt) {
+      const ancho = window.innerWidth, alto = window.innerHeight;
+      let meta = 0;
+      if (DESPLAZAR_ENCUADRE && fichaEl.classList.contains('visible') && ancho > 700) { // en móvil la ficha va abajo
+        const izq = ancho - parseFloat(getComputedStyle(fichaEl).right) - fichaEl.offsetWidth; // borde izquierdo de la ficha
+        meta = Math.max(0, ancho / 2 - izq / 2);   // centro del hueco libre = izq / 2
+      }
+      desplaz += (meta - desplaz) * Math.min(1, dt * 3);
+      if (meta === 0 && Math.abs(desplaz) < 0.5) {
+        if (camara.view && camara.view.enabled) camara.clearViewOffset();
+        desplaz = 0;
+      } else {
+        camara.setViewOffset(ancho, alto, desplaz, 0, ancho, alto);
+      }
+    }
 
     function suavizar(t) { return t * t * (3 - 2 * t); } // smoothstep para transiciones
 
@@ -1767,6 +1817,7 @@
       // ─── Grano: aparece al acercarse ───
       uGrano.value = 1 - THREE.MathUtils.smoothstep(D, SOL.granoPleno, SOL.granoDesde);
 
+      encuadreFicha(dt);
       actualizarEtiquetas();
       // Plano de corte cercano: con planetas diminutos la cámara se pone muy
       // cerca de la superficie; si no se acerca también, el planeta se "corta".
