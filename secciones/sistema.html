@@ -25,7 +25,11 @@
       --acento: #c98a3e;               /* ocre (el mismo que css/archivo.css) */
       --naranja: #f0a050; --arena: #dccab0; --tenue: #8f7a5e;
       --linea: rgba(201, 138, 62, .3);
-      position: fixed; top: 50%; right: 19vw; width: 340px;  /* 19vw = antes 4vw + 15 % de la pantalla */ max-height: 86vh; overflow-y: auto;
+      position: fixed; top: 50%; width: 340px;
+      /* junto al objeto enfocado (siempre en el centro): su borde izquierdo a 13vh
+         del centro (el planeta mide ~9,5vh de radio; la estrella sí queda algo
+         pisada, pero la ficha es semitransparente). Sin salirse por la derecha. */
+      left: min(calc(50% + 13vh), calc(100% - 410px)); max-height: 86vh; overflow-y: auto;
       transform: translate(24px, -50%); opacity: 0; pointer-events: none;
       transition: opacity .5s, transform .5s;
       padding: 22px 22px 18px;
@@ -79,9 +83,20 @@
        clic se centran en él. El TAMAÑO del aro lo pone el JS en cada fotograma. */
     .etq { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: auto; cursor: pointer; user-select: none; }
     .etq::before { content: ''; position: absolute; left: -12px; top: -12px; width: 24px; height: 24px; } /* zona de clic mínima: aunque el aro sea diminuto */
-    .etq .aro { position: absolute; box-sizing: border-box; border: 1.5px solid #f0a050;
-      border-radius: 50%; box-shadow: 0 0 8px rgba(240, 160, 80, .7); }
-    .etq:hover .aro { background: rgba(240, 160, 80, .35); }
+    /* Marca: cuatro esquinas en corchete (mismo lenguaje que la ficha).
+       --b = largo de cada brazo; lo ajusta el JS según el tamaño. */
+    .etq .aro { position: absolute; --b: 4px; --c: #f0a050;
+      background:
+        linear-gradient(var(--c), var(--c)) left top / var(--b) 1.5px no-repeat,
+        linear-gradient(var(--c), var(--c)) left top / 1.5px var(--b) no-repeat,
+        linear-gradient(var(--c), var(--c)) right top / var(--b) 1.5px no-repeat,
+        linear-gradient(var(--c), var(--c)) right top / 1.5px var(--b) no-repeat,
+        linear-gradient(var(--c), var(--c)) left bottom / var(--b) 1.5px no-repeat,
+        linear-gradient(var(--c), var(--c)) left bottom / 1.5px var(--b) no-repeat,
+        linear-gradient(var(--c), var(--c)) right bottom / var(--b) 1.5px no-repeat,
+        linear-gradient(var(--c), var(--c)) right bottom / 1.5px var(--b) no-repeat;
+      filter: drop-shadow(0 0 3px rgba(240, 160, 80, .8)); }
+    .etq:hover .aro { --c: #ffe2bd; }
     .etq.fuera { display: none; }
 
     /* fundido a negro al descender */
@@ -1598,7 +1613,7 @@
     });
 
     // ── ETIQUETAS (solo con ESCALA_REAL) ──────────────────────────────
-    // Un aro alrededor de cada planeta, en HTML encima de la escena.
+    // Una marca (esquinas en corchete) alrededor de cada planeta, en HTML encima de la escena.
     // Se ocultan detrás de la cámara, tapadas por la estrella, la del planeta
     // en el que estás y durante el descenso. Pinchar una = ir a ese planeta.
     const etiquetas = [];
@@ -1655,6 +1670,7 @@
           el.style.transform = `translate(${((vEtq.x + 1) / 2 * ancho).toFixed(1)}px, ${((1 - vEtq.y) / 2 * alto).toFixed(1)}px)`;
           const aro = el.firstChild, d = (2 * rPx).toFixed(1) + 'px', m = (-rPx).toFixed(1) + 'px';
           aro.style.width = aro.style.height = d; aro.style.left = aro.style.top = m;
+          aro.style.setProperty('--b', Math.max(3, 0.6 * rPx).toFixed(1) + 'px'); // brazos = 30 % del lado
           el.style.opacity = opac.toFixed(2);
         }
       }
@@ -1672,29 +1688,6 @@
 
     // Duración de los vuelos en SEGUNDOS (igual en cualquier ordenador, vaya a los fps que vaya)
     const VUELO = { ir: 1.4, volver: 1.6 };
-
-    // ENCUADRE CON FICHA: con la ficha abierta, la vista se desliza a la
-    // izquierda para que el planeta (o la estrella) quede centrado en el
-    // hueco libre y la ficha no lo tape. Técnica: setViewOffset = "recortar"
-    // la imagen desplazada; no mueve la cámara, así que el giro y el zoom
-    // siguen funcionando igual. Para quitarlo: DESPLAZAR_ENCUADRE = false.
-    const DESPLAZAR_ENCUADRE = true;
-    let desplaz = 0;   // píxeles que se desplaza la vista ahora mismo
-    function encuadreFicha(dt) {
-      const ancho = window.innerWidth, alto = window.innerHeight;
-      let meta = 0;
-      if (DESPLAZAR_ENCUADRE && fichaEl.classList.contains('visible') && ancho > 700) { // en móvil la ficha va abajo
-        const izq = ancho - parseFloat(getComputedStyle(fichaEl).right) - fichaEl.offsetWidth; // borde izquierdo de la ficha
-        meta = Math.max(0, ancho / 2 - izq / 2);   // centro del hueco libre = izq / 2
-      }
-      desplaz += (meta - desplaz) * Math.min(1, dt * 3);
-      if (meta === 0 && Math.abs(desplaz) < 0.5) {
-        if (camara.view && camara.view.enabled) camara.clearViewOffset();
-        desplaz = 0;
-      } else {
-        camara.setViewOffset(ancho, alto, desplaz, 0, ancho, alto);
-      }
-    }
 
     function suavizar(t) { return t * t * (3 - 2 * t); } // smoothstep para transiciones
 
@@ -1817,7 +1810,6 @@
       // ─── Grano: aparece al acercarse ───
       uGrano.value = 1 - THREE.MathUtils.smoothstep(D, SOL.granoPleno, SOL.granoDesde);
 
-      encuadreFicha(dt);
       actualizarEtiquetas();
       // Plano de corte cercano: con planetas diminutos la cámara se pone muy
       // cerca de la superficie; si no se acerca también, el planeta se "corta".
