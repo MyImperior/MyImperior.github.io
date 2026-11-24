@@ -74,15 +74,12 @@
 
     /* ── ETIQUETAS de planetas (prueba de tamaños reales) ── */
     #etiquetas { position: fixed; inset: 0; pointer-events: none; }
+    #ficha { z-index: 2; }   /* los aros pasan POR DEBAJO de la ficha, no encima */
     .etq { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer;
       display: flex; align-items: center; gap: 8px; white-space: nowrap; user-select: none; }
     .etq .aro { width: 16px; height: 16px; margin: -9px 0 0 -9px; border: 1.5px solid #f0a050;
       border-radius: 50%; box-shadow: 0 0 8px rgba(240, 160, 80, .7); flex: none; }
-    .etq .txt { margin-top: -9px; padding: 2px 7px; font: 400 11px 'JetBrains Mono', monospace;
-      letter-spacing: .12em; color: #ffd9a8;  /* sin mayúsculas: la letra del planeta va en minúscula */
-      background: rgba(10, 8, 6, .55); border: 1px solid rgba(240, 160, 80, .45); }
     .etq:hover .aro { background: rgba(240, 160, 80, .35); }
-    .etq:hover .txt { color: #fff; border-color: #f0a050; }
     .etq.fuera { display: none; }
 
     /* fundido a negro al descender */
@@ -1078,6 +1075,11 @@
     // planetas se llaman como en la convención real: estrella + letra (b, c, d…).
     const NOMBRE_ESTRELLA = 'Zetesis';
     const ESTRELLA = { masa: 0.61, luminosidad: 0.117 };   // en masas y luminosidades solares
+    // Temperatura de superficie: no se escribe a mano, sale de la ley de
+    // Stefan-Boltzmann (L = R² · T⁴, en unidades solares; Sol = 5.772 K).
+    // Con R = 0,67 y L = 0,117 → ≈ 4.120 K: tipo espectral K7 V.
+    ESTRELLA.temperatura = 5772 * Math.pow(ESTRELLA.luminosidad / RADIO_ESTRELLA ** 2, 0.25);
+    ESTRELLA.tipo = 'Enana naranja · tipo K7 V';  // si cambias masa/radio/luminosidad, revisa esto
     // (UA_POR_UNIDAD está definido arriba, junto a la PRUEBA DE ESCALA)
 
     // TIEMPO: un único reloj para órbitas Y rotaciones, para que las
@@ -1351,12 +1353,54 @@
         '';
       fichaEl.classList.remove('abortado');
       veredictoEl.className = ''; veredictoEl.innerHTML = '';
+      btnDescender.style.display = '';
       btnDescender.disabled = false; btnDescender.textContent = 'Descender';
       if (p.abortado) mostrarAborto(p);   // si ya lo intentó antes, se le recuerda por qué no
       fichaEl.scrollTop = 0;
       fichaEl.classList.add('visible');
     }
     function ocultarFicha() { fichaEl.classList.remove('visible'); }
+
+    // Ficha de la ESTRELLA. Todo se deriva de masa, radio y luminosidad
+    // (y del giro con que se dibuja), para que nunca se contradiga.
+    function mostrarFichaEstrella() {
+      const E = ESTRELLA, M = E.masa, R = RADIO_ESTRELLA, L = E.luminosidad, T = E.temperatura;
+      const densidad = 1.41 * M / R ** 3;                            // g/cm³ (1,41 = densidad media del Sol)
+      const gravedad = 27.9 * M / R ** 2;                            // en g terrestres (Sol = 27,9 g)
+      const giroDias = 2 * Math.PI / SOL.giro * DIAS_POR_SEGUNDO;    // el MISMO giro que se ve en pantalla
+      const pico = 2.898e6 / T;                                      // ley de Wien: λ de máxima emisión (nm)
+      // Zona templada (Kopparapu et al. 2013, aprox. para ~4.100 K):
+      // interior = efecto invernadero desbocado (0,95 × la luz de la Tierra),
+      // exterior = máximo efecto invernadero del CO₂ (0,28 ×).
+      const zIn = Math.sqrt(L / 0.95), zOut = Math.sqrt(L / 0.28);
+      const vida = 10 * M / L;                                       // miles de millones de años (Sol ≈ 10)
+      $('f-cod').textContent = 'Estrella anfitriona';
+      $('f-nombre').textContent = NOMBRE_ESTRELLA;
+      $('f-tipo').textContent = E.tipo;
+      $('f-datos').innerHTML =
+        `<div class="bloque"><h3>Cuerpo</h3>${filas([
+          ['Masa', `${num(M)} × Sol`],
+          ['Radio', `${num(R)} × Sol`],
+          ['Densidad', `${num(densidad, 1)} g/cm³`],
+          ['Gravedad', `${num(gravedad, 0)} g`],
+          ['Rotación', `${num(giroDias, 0)} d`]
+        ])}</div>` +
+        `<div class="bloque"><h3>Luz</h3>${filas([
+          ['Luminosidad', `${num(L, 3)} × Sol`],
+          ['Temperatura', `${num(Math.round(T / 10) * 10, 0)} K`],
+          ['Pico de emisión', `${num(Math.round(pico / 10) * 10, 0)} nm · rojo`]
+        ])}</div>` +
+        `<div class="bloque"><h3>Sistema</h3>${filas([
+          ['Planetas', `${planetas.length}`],
+          ['Zona templada', `${num(zIn)}–${num(zOut)} UA`],
+          ['Vida estimada', `≈ ${num(Math.round(vida), 0)}.000 M años`]
+        ])}</div>`;
+      fichaEl.classList.remove('abortado');
+      veredictoEl.className = ''; veredictoEl.innerHTML = '';
+      btnDescender.style.display = 'none';   // a una estrella no se desciende
+      fichaEl.scrollTop = 0;
+      fichaEl.classList.add('visible');
+    }
 
     function mostrarAborto(p) {
       fichaEl.classList.add('abortado');
@@ -1369,6 +1413,7 @@
     let descenso = null;   // { t, d0 } mientras dura la secuencia de descenso
     btnDescender.addEventListener('click', () => {
       if (!enfocado || volando || descenso) return;
+      if (!enfocado || enfocado.esEstrella) return;
       if (!enfocado.m.bueno) { enfocado.abortado = true; mostrarAborto(enfocado); return; }
       btnDescender.disabled = true; btnDescender.textContent = 'Descendiendo';
       veredictoEl.className = 'bien';
@@ -1402,7 +1447,7 @@
     window.addEventListener('pageshow', (e) => { if (e.persisted) location.reload(); });
 
     // ════════════════════════════════════════════════════════════
-    //  INTERACCIÓN: clic → vuela al planeta; clic en vacío → volver
+    //  INTERACCIÓN: clic → vuela al planeta (o a la estrella); clic en vacío → volver
     // ════════════════════════════════════════════════════════════
     const ray = new THREE.Raycaster();
     const raton = new THREE.Vector2();
@@ -1490,7 +1535,8 @@
       e.preventDefault();
       const c = enfocado.grupo.position;
       offGiro.subVectors(camara.position, c);
-      const dist = THREE.MathUtils.clamp(offGiro.length() * Math.pow(1.0015, e.deltaY), enfocado.r * 2.2, enfocado.r * 40);
+      const min = enfocado.esEstrella ? 2 : 2.2, max = enfocado.esEstrella ? 12 : 40;   // en radios del cuerpo enfocado
+      const dist = THREE.MathUtils.clamp(offGiro.length() * Math.pow(1.0015, e.deltaY), enfocado.r * min, enfocado.r * max);
       camara.position.copy(c).add(offGiro.setLength(dist));
     }, { passive: false });
     const entryUp   = new THREE.Vector3();  // orientación ("arriba") de la cámara al arrancar el vuelo
@@ -1508,8 +1554,20 @@
       velGiro.theta = velGiro.phi = 0;
     }
 
+    // La ESTRELLA como destino: se enfoca igual que un planeta (mismo giro,
+    // zoom y ficha), con un objeto con la misma forma { grupo.position, r }.
+    const FOCO_ESTRELLA = { esEstrella: true, grupo: { position: new THREE.Vector3(0, 0, 0) }, r: RADIO_VISIBLE, mesh: sol };
+    const dirEstrella = new THREE.Vector3();   // desde dónde se mira la estrella al llegar
+
     function irAPlaneta(p) {
       if (descenso || p === enfocado) return;
+      if (p.esEstrella) {
+        // Llegar desde el lado en que ya estamos (sin rodeos), casi a ras del
+        // ecuador (se ven mejor las protuberancias del borde)
+        dirEstrella.set(camara.position.x, 0, camara.position.z);
+        if (dirEstrella.lengthSq() < 1e-6) dirEstrella.set(0, 0, 1);
+        dirEstrella.normalize(); dirEstrella.y = 0.22; dirEstrella.normalize();
+      }
       // Punto de partida del vuelo: desde donde MIRAMOS ahora. Si ya estábamos
       // en un planeta (o volando) es miraFoco; en la vista general, el centro
       // de OrbitControls. (Antes siempre se tomaba éste → el salto al sol.)
@@ -1528,9 +1586,9 @@
       raton.x = (e.clientX / window.innerWidth) * 2 - 1;
       raton.y = -(e.clientY / window.innerHeight) * 2 + 1;
       ray.setFromCamera(raton, camara);
-      const hit = ray.intersectObjects(planetas.map(p => p.mesh), false);
+      const hit = ray.intersectObjects([sol, ...planetas.map(p => p.mesh)], false); // el más cercano primero
       if (hit.length) {
-        irAPlaneta(planetas.find(pp => pp.mesh === hit[0].object));
+        irAPlaneta(hit[0].object === sol ? FOCO_ESTRELLA : planetas.find(pp => pp.mesh === hit[0].object));
       } else if (enfocado) {
         entryMira.copy(miraFoco);
         enfocado = null; empezarVuelo(); ocultarFicha(); ayudaEl.classList.remove('oculta'); // volver a la vista general
@@ -1538,7 +1596,7 @@
     });
 
     // ── ETIQUETAS (solo con ESCALA_REAL) ──────────────────────────────
-    // Un aro y el nombre junto a cada planeta, en HTML encima de la escena.
+    // Un aro alrededor de cada planeta, en HTML encima de la escena.
     // Se ocultan detrás de la cámara, tapadas por la estrella, la del planeta
     // en el que estás y durante el descenso. Pinchar una = ir a ese planeta.
     const etiquetas = [];
@@ -1547,7 +1605,8 @@
       for (const p of planetas) {
         const el = document.createElement('div');
         el.className = 'etq';
-        el.innerHTML = `<span class="aro"></span><span class="txt">${NOMBRE_ESTRELLA} ${p.m.id}</span>`;
+        el.innerHTML = '<span class="aro"></span>';                  // solo el aro (sin título)
+        el.setAttribute('aria-label', `${NOMBRE_ESTRELLA} ${p.m.id}`); // el nombre, solo para lectores de pantalla
         el.addEventListener('click', (e) => { e.stopPropagation(); irAPlaneta(p); });
         cont.appendChild(el);
         etiquetas.push({ p, el });
@@ -1627,13 +1686,17 @@
         // línea día/noche y las luces en la mitad oscura). Después, el ratón
         // gira libremente alrededor del planeta, que la cámara acompaña.
         const pos = enfocado.grupo.position;
-        const d = 12.7 * enfocado.r;                  // distancia → el planeta ocupa ~20% de pantalla
-        fuera.copy(pos).normalize();                  // sol → planeta (radial)
-        lado.crossVectors(ARRIBA, fuera).normalize(); // tangencial (si la mitad iluminada sale al otro lado, invertir el signo de 0.93)
-        destino.copy(pos)
-          .addScaledVector(fuera, -0.10 * d)          // un pelín hacia el sol → algo más de media cara iluminada
-          .addScaledVector(lado,   0.93 * d)          // sobre todo lateral → vista de terminador
-          .addScaledVector(ARRIBA, 0.26 * d);         // leve elevación
+        if (enfocado.esEstrella) {
+          destino.copy(dirEstrella).multiplyScalar(4.2 * enfocado.r);  // la estrella ocupa ~60% de la altura de pantalla
+        } else {
+          const d = 12.7 * enfocado.r;                  // distancia → el planeta ocupa ~20% de pantalla
+          fuera.copy(pos).normalize();                  // sol → planeta (radial)
+          lado.crossVectors(ARRIBA, fuera).normalize(); // tangencial (si la mitad iluminada sale al otro lado, invertir el signo de 0.93)
+          destino.copy(pos)
+            .addScaledVector(fuera, -0.10 * d)          // un pelín hacia el sol → algo más de media cara iluminada
+            .addScaledVector(lado,   0.93 * d)          // sobre todo lateral → vista de terminador
+            .addScaledVector(ARRIBA, 0.26 * d);         // leve elevación
+        }
         controls.enabled = false;
         if (volando) {
           tProg = Math.min(1, tProg + dt / VUELO.ir);
@@ -1650,7 +1713,7 @@
             posPrevia.copy(pos);
             camara.updateMatrixWorld();
             escena.attach(cielo);  // soltar el cielo: queda fijo en el espacio
-            mostrarFicha(enfocado);
+            if (enfocado.esEstrella) mostrarFichaEstrella(); else mostrarFicha(enfocado);
           }
         } else {
           // CO-MÓVIL: la cámara se desplaza lo mismo que el planeta en su órbita
